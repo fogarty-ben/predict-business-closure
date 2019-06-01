@@ -45,7 +45,7 @@ def prepare(lcs):
 ### train test split for one set of times
 
 def train_test_split(lcs, time_col, train_start, train_end, test_start, test_end,
-                   predictor_cols, label):
+                   predictor_cols=PREDICTOR_COLS, label=LABEL):
     train_df = lcs[(lcs[time_col] >= train_start) & (lcs[time_col] <= train_end)]
     test_df = lcs[(lcs[time_col] >= test_start) & (lcs[time_col] <= test_end)]
     lag_df = lcs[(lcs[time_col] > train_end) & (lcs[time_col] < test_start)]
