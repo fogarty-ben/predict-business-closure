@@ -80,6 +80,18 @@ def process_race(row):
     processed['Hispanic or Latino'] = row["Hispanic or Latino"] / row["Total (Hispanic/Not Hispanic)"]
     return processed
 
+def process_2010_education(row):
+    '''
+    Aggregates educations columsn from 2000 decentential census
+
+    row (array like): the row to aggregate over
+
+    returns pandas series
+    '''
+    row = row / row['Population 25 years and over']
+    row = row.drop('Population 25 years and over')
+    return row
+
 def get_zbp_data():
     '''
     Temporary function to make merging code easier later.
@@ -89,11 +101,7 @@ def get_zbp_data():
     cook_county_code = '031'
     illinois_code = '17'
 
-    base_urls = {'2000_census_sf1': 'https://api.census.gov/data/2000/sf1',
-                 '2000_census_sf3': 'https://api.census.gov/data/2000/sf3',
-                 '2010_census_sf1': 'https://api.census.gov/data/2010/dec/sf1',
-                 'zbp': 'https://api.census.gov/data/{}/zbp'}
-
+    zbp_url = 'https://api.census.gov/data/{}/zbp'
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
     results = client.get('unjd-c2ca', select='zip')
     chicago_zips = pd.DataFrame.from_records(results).zip.tolist()
@@ -102,7 +110,7 @@ def get_zbp_data():
 
     aggregate = pd.DataFrame()
     for year in range(2000, 2017):
-        base_url = base_urls['zbp'].format(year)
+        base_url = zbp_url.format(year)
         aggregate_append = get_census_data(base_url, agg_zip_vars, 
                                            ('zipcode', chicago_zips),
                                            key=tokens['us_census_bureau'])
@@ -111,10 +119,15 @@ def get_zbp_data():
 
     return aggregate
 
-def get_2000_census_cata():
+def get_2000_census_data():
     '''
     Temporary function to make merging code easier later
     '''
+    tokens = load_tokens('tokens.json')
+
+    base_urls = {'2000_census_sf1': 'https://api.census.gov/data/2000/sf1',
+                 '2000_census_sf3': 'https://api.census.gov/data/2000/sf3'}
+
     #SF1
     dec_2000_race = {'P003001': 'Total (Race)',
                     'P003003': 'White alone',
@@ -143,7 +156,7 @@ def get_2000_census_cata():
     #SF3
     dec_2000_income = {'P053001': 'Median household income in 1999 Households (1999 Dollars)',
                        'P089001': 'Total: Population for whom poverty status is determined',
-                       'P089002': 'Total: Income in 1999 below poverty level'}
+                       'P089002': 'Income below poverty level'}
     
     income_2000 = get_census_data(base_urls['2000_census_sf3'], list(dec_2000_income.keys()), 
                                           ('tract', ['*']), in_levels={'state': '17',
@@ -155,7 +168,7 @@ def get_2000_census_cata():
                              .set_index('tract')\
                              .drop(000000)
 
-    income_2000['Total: Income in 1999 below poverty level'] = income_2000['Total: Income in 1999 below poverty level'] / income_2000['Total: Population for whom poverty status is determined']
+    income_2000['Income below poverty level'] = income_2000['Income below poverty level'] / income_2000['Total: Population for whom poverty status is determined']
     income_2000 = income_2000.drop('Total: Population for whom poverty status is determined', axis=1)
 
     dec_2000_education =   {"P037001": "Total: Population 25 years and over",
@@ -204,23 +217,55 @@ def get_2000_census_cata():
                                   .drop(000000)
 
     return pd.concat([race_2000, income_2000, educ_2000], axis=1)
+    
+def get_2010_census_data():
     '''
+    Temporary function to make merging code easier later
+    '''
+    tokens = load_tokens('tokens.json')
+
+    acs_url = 'https://api.census.gov/data/2010/acs/acs5'
+
     #ACS 2010 5yr, Detailed Table
     acs_2010_race = {"B02001_001E": "Total (Race)",
                      "B02001_002E": "White alone",
                      "B02001_003E": "Black/AfAmer alone",
                      "B02001_004E": "AmInd/Alaskn alone",
-                     "B02001_005E": "Asian alone'",
+                     "B02001_005E": "Asian alone",
                      "B02001_006E": "HI alone",
                      "B02001_007E": "Some other race alone",
                      "B02001_008E": "Total 2+ races",
                      "B03001_001E": "Total (Hispanic/Not Hispanic)",
                      "B03001_003E": "Hispanic or Latino"}
 
+    race_2010 = get_census_data(acs_url, list(acs_2010_race.keys()), 
+                                ('tract', ['*']), in_levels={'state': '17',
+                                                             'county': '031'},
+                                key=tokens['us_census_bureau'])
+    
+    race_2010 = race_2010.rename(acs_2010_race, axis=1)\
+                         .drop(['state', 'county'], axis=1)\
+                         .astype(int)\
+                         .set_index('tract')
+
+    race_2010 = race_2010.apply(process_race, axis=1)
 
     acs_2010_income = {"B06011_001E": "Median income",
                        "B06012_001E": 'Total: Population for whom poverty status is determined',
-                       'B06012_002E': 'Total: Income in 1999 below poverty level'}
+                       'B06012_002E': 'Income below poverty level'}
+
+    income_2010 = get_census_data(acs_url, list(acs_2010_income.keys()), 
+                                  ('tract', ['*']), in_levels={'state': '17',
+                                                               'county': '031'},
+                                  key=tokens['us_census_bureau'])
+    income_2010 = income_2010.rename(acs_2010_income, axis=1)\
+                             .drop(['state', 'county'], axis=1)\
+                             .astype(int)\
+                             .set_index('tract')
+
+    income_2010['Median income'] = income_2010['Median income'] * .7640 #adjust for inflation
+    income_2010['Income below poverty level'] = income_2010['Income below poverty level'] / income_2010['Total: Population for whom poverty status is determined']
+    income_2010 = income_2010.drop('Total: Population for whom poverty status is determined', axis=1)
 
     acs_2010_education =   {"B06009_001E": "Population 25 years and over",
                             "B06009_002E": "Less than high school graduate",
@@ -228,10 +273,20 @@ def get_2000_census_cata():
                             "B06009_004E": "Some college or associate's degree",
                             "B06009_005E": "Bachelor's degree",
                             "B06009_006E": "Graduate or professional degree"}
-    '''
 
+    education_2010 = get_census_data(acs_url, list(acs_2010_education.keys()), 
+                                ('tract', ['*']), in_levels={'state': '17',
+                                                             'county': '031'},
+                                key=tokens['us_census_bureau'])
     
-    
+
+    education_2010 = education_2010.rename(acs_2010_education, axis=1)\
+                                   .drop(['state', 'county'], axis=1)\
+                                   .astype(int)\
+                                   .set_index('tract')\
+                                   .apply(process_2010_education, axis=1)
+
+    return pd.concat([race_2010, income_2010, education_2010], axis=1)
 
 def load_tokens(tokens_file):
     '''
