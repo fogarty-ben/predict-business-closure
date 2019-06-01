@@ -22,5 +22,5 @@ Files
 - `main.py`: to run in bash
 - `pipeline.py`: class for a machine learning pipeline and model performance comparison functions
 - `model.py`: class for a machine learning model
-- `data_preprocess.py`: THIS IS ONLY FOR HW 4. ALL THE NOTEBOOK FUNCTIONS SHOULD GO HERE. dataset-specific functions to 1) clean the dataset before running the pipeline and 2) to preprocess the training and test sets as part of the pipeline
+- `data_preprocess.py`: THIS CURRENTLY HOLDS FUNCTIONS FOR HW 4. ALL THE NOTEBOOK FUNCTIONS SHOULD EVENTUALLY GO HERE. dataset-specific functions to 1) clean the dataset before running the pipeline and 2) to preprocess the training and test sets as part of the pipeline
 - `data_explore.py`: functions for exploratory data analysis before running the pipeline.  
