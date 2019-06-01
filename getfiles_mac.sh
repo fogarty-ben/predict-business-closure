@@ -3,3 +3,4 @@ curl -L https://uchicago.box.com/shared/static/cgwx1a1e3r0jz48knpy8mymg5etlzdji.
 unzip raw.zip
 mv raw data
 rm -r __MACOSX
+rm raw.zip
