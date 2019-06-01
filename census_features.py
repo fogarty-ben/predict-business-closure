@@ -149,9 +149,9 @@ def get_2000_census_data():
     
     race_2000 = race_2000.rename(dec_2000_race, axis=1)\
                          .drop(['state', 'county'], axis=1)\
-                         .astype(int)\
                          .set_index('tract')\
-                         .drop(000000)
+                         .astype(int)\
+                         .drop('000000')
 
     race_2000 = race_2000.apply(process_race, axis=1)
 
@@ -166,9 +166,9 @@ def get_2000_census_data():
                                           key=tokens['us_census_bureau'])
     income_2000 = income_2000.rename(dec_2000_income, axis=1)\
                              .drop(['state', 'county'], axis=1)\
-                             .astype(int)\
                              .set_index('tract')\
-                             .drop(000000)
+                             .astype(int)\
+                             .drop('000000')
 
     income_2000['Income below poverty level'] = income_2000['Income below poverty level'] / income_2000['Total: Population for whom poverty status is determined']
     income_2000 = income_2000.drop('Total: Population for whom poverty status is determined', axis=1)
@@ -211,12 +211,14 @@ def get_2000_census_data():
                                           ('tract', ['*']), in_levels={'state': '17',
                                                                        'county': '031'},
                                           key=tokens['us_census_bureau'])
-    educ_2000 = educ_2000.astype(int)
+
+    educ_2000 = educ_2000.set_index('tract')\
+                         .astype(int)
     educ_2000_combined = pd.DataFrame(data=(educ_2000.iloc[:, 1:17].to_numpy() + educ_2000.iloc[:, 17:33].to_numpy()),
-                                      index=educ_2000.tract)
+                                      index=educ_2000.index)
     educ_2000_combined['P037001'] = educ_2000['P037001'].to_numpy()
     educ_2000 = educ_2000_combined.apply(process_2000_education, axis=1)\
-                                  .drop(000000)
+                                  .drop('000000')
 
     return pd.concat([race_2000, income_2000, educ_2000], axis=1)
     
@@ -247,8 +249,8 @@ def get_2010_census_data():
     
     race_2010 = race_2010.rename(acs_2010_race, axis=1)\
                          .drop(['state', 'county'], axis=1)\
-                         .astype(int)\
-                         .set_index('tract')
+                         .set_index('tract')\
+                         .astype(int)
 
     race_2010 = race_2010.apply(process_race, axis=1)
 
@@ -262,8 +264,8 @@ def get_2010_census_data():
                                   key=tokens['us_census_bureau'])
     income_2010 = income_2010.rename(acs_2010_income, axis=1)\
                              .drop(['state', 'county'], axis=1)\
-                             .astype(int)\
-                             .set_index('tract')
+                             .set_index('tract')\
+                             .astype(int)
 
     income_2010['Median household income (1999 dollars)'] = income_2010['Median household income (1999 dollars)'] * .7640 #adjust for inflation
     income_2010['Income below poverty level'] = income_2010['Income below poverty level'] / income_2010['Total: Population for whom poverty status is determined']
@@ -284,8 +286,8 @@ def get_2010_census_data():
 
     education_2010 = education_2010.rename(acs_2010_education, axis=1)\
                                    .drop(['state', 'county'], axis=1)\
-                                   .astype(int)\
                                    .set_index('tract')\
+                                   .astype(int)\
                                    .apply(process_2010_education, axis=1)
 
     return pd.concat([race_2010, income_2010, education_2010], axis=1)
