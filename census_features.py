@@ -20,6 +20,8 @@ def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
         and the value should be the string value of a geography
     key (str): Census Bureau API key
     '''
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     http = urllib3.PoolManager()
     fields = {}
 
@@ -154,7 +156,7 @@ def get_2000_census_data():
     race_2000 = race_2000.apply(process_race, axis=1)
 
     #SF3
-    dec_2000_income = {'P053001': 'Median household income in 1999 Households (1999 Dollars)',
+    dec_2000_income = {'P053001': 'Median household income (1999 Dollars)',
                        'P089001': 'Total: Population for whom poverty status is determined',
                        'P089002': 'Income below poverty level'}
     
@@ -250,7 +252,7 @@ def get_2010_census_data():
 
     race_2010 = race_2010.apply(process_race, axis=1)
 
-    acs_2010_income = {"B06011_001E": "Median income",
+    acs_2010_income = {"B19013_001E": "Median household income (1999 dollars)",
                        "B06012_001E": 'Total: Population for whom poverty status is determined',
                        'B06012_002E': 'Income below poverty level'}
 
@@ -263,7 +265,7 @@ def get_2010_census_data():
                              .astype(int)\
                              .set_index('tract')
 
-    income_2010['Median income'] = income_2010['Median income'] * .7640 #adjust for inflation
+    income_2010['Median household income (1999 dollars)'] = income_2010['Median household income (1999 dollars)'] * .7640 #adjust for inflation
     income_2010['Income below poverty level'] = income_2010['Income below poverty level'] / income_2010['Total: Population for whom poverty status is determined']
     income_2010 = income_2010.drop('Total: Population for whom poverty status is determined', axis=1)
 
