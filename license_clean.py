@@ -25,7 +25,7 @@ def get_lcs_data():
     lcs = obtain_lcs()
     lcs = convert_lcs_dtypes(lcs)
     lcs = clean_lcs(lcs)
-    lcs = create_time_buckets(lcs) #need to deal with missing start date here (apprx. 9863)
+    lcs = create_time_buckets(lcs) #need to deal with missing start date before here (apprx. 9863)
 
     #### add geographies ####
     lcs = gdf_from_latlong(lcs, lat='latitude', long='longitude')  
@@ -102,27 +102,22 @@ def create_account_site_time(groupdf):
                  'city', 'state', 'zip_code', 'latitude', 'longitude', 
                  'location', 'police_district', 'precinct', 'ward',
                  'ward_precinct', 'ssa']
-    record = pd.Series(index=copy_vals)
-    record.loc[copy_vals] = groupdf.iloc[0].loc[copy_vals]
+    record = groupdf.iloc[0].loc[copy_vals].to_list()
 
     
-    record['n_licenses'] = len(groupdf)
+    record.append(len(groupdf))
 
-    record['earliest_lsc_exp_date'] = min(groupdf.license_start_date)
-    record['latest_lsc_exp_date'] = max(groupdf.expiration_date)
-
-    record['business_activity_ids'] = groupdf.business_activity_id.unique()
-    record['license_codes'] = groupdf.license_code.unique()
-    record['application_types'] = groupdf.license_code.unique()
-    record['cndtl_approval_pct'] = (np.sum(groupdf.conditional_approval == 'Y') /
-                                    len(groupdf))
-    record['lsc_revoked_pct'] = (np.sum((groupdf.license_status == 'REV') |
-                                        (groupdf.license_status == 'REA')) /
-                                 len(groupdf))
-    record['lsc_canceled_pct'] = (np.sum((groupdf.license_status == 'AAC') |
-                                          (groupdf.license_status == 'AAC')) /
-                                  len(groupdf))
-
+    record.append(min(groupdf.license_start_date))
+    record.append(max(groupdf.expiration_date))
+    record.append(groupdf.license_code.unique())
+    
+    record.append(np.mean(groupdf.conditional_approval == 'Y'))
+    record.append(np.mean((groupdf.license_status == 'REV') |
+                                        (groupdf.license_status == 'REA'))  )  
+    record.append(np.mean((groupdf.license_status == 'AAC') |
+                                          (groupdf.license_status == 'AAC')))
+    record.append(np.mean(groupdf.application_type == 'RENEW'))
+    
     return record
 
 def collapse_licenses(lcs):
@@ -136,11 +131,49 @@ def collapse_licenses(lcs):
 
     Returns: pandas dataframe
     '''
-    lcs_collapse = lcs.groupby(['business_id', 'time_period'])\
-                      .apply(create_account_site_time)
+    lcs['rev_or_rea'] = (lcs.license_status == 'REV') | (lcs.license_status == 'REA')
+    lcs['canceled'] = lcs.license_status == 'AAC'
+    lcs.conditional_approval = lcs.conditional_approval == 'Y'
+    lcs_collapse = lcs.groupby(['account_number', 'site_number', 'time_period'])\
+                      .agg({"license_id": 'count',
+                            "legal_name": "first",
+                            "doing_business_as_name": 'first',
+                            "license_start_date": "min",
+                            "expiration_date": "max",
+                            "application_type": set,
+                            "license_code": set,
+                            "license_description": set,
+                            "business_activity": set,
+                            "business_activity_id": set,
+                            "rev_or_rea": 'mean',
+                            "canceled": 'mean',
+                            "conditional_approval": 'mean',
+                            "address": "first",
+                            "city": "first",
+                            "state": "first",
+                            "zip_code": "first",
+                            "latitude": "first",
+                            "longitude": "first",
+                            "location": "first",
+                            "police_district": "first",
+                            "precinct": "first",
+                            "ward": "first",
+                            "ward_precinct": "first",
+                            "ssa": "first"})\
+                      .rename({'license_id': 'n_licenses',
+                               'license_start_date': 'min_start_date',
+                               'expiration_date': 'max_expiration_date',
+                               'application_type': 'application_types',
+                               'license_code': 'license_codes',
+                               'license_description': 'license_descriptions',
+                               'business_activity': 'business_activities',
+                               'business_activity_id': 'business_activity_ids',
+                               'rev_or_rea': 'pct_revoked',
+                               'canceled': 'pct_canceled',
+                               'conditional_approval': 'pct_cndtl_approval'},
+                              axis=1)
 
     return lcs_collapse
-
 
 def convert_lcs_dtypes(lcs):
     lcs_dates = ['application_created_date', 
@@ -160,9 +193,6 @@ def clean_lcs(lcs):
     '''
     clean business licenses data
     '''
-
-    # add business id: account_number-site_number
-    lcs['business_id'] = lcs['account_number'] + "-" + lcs['site_number'].map(str)
 
     # fill license start dates
     # for issuance type: fill start date with issue date
