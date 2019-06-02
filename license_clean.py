@@ -1,8 +1,10 @@
 import os
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from shapely.geometry import shape
 from dateutil import parser
+from dateutil.relativedelta import relativedelta
 from datetime import timedelta
 import pickle
 import json
@@ -23,6 +25,7 @@ def get_lcs_data():
     lcs = obtain_lcs()
     lcs = convert_lcs_dtypes(lcs)
     lcs = clean_lcs(lcs)
+    lcs = create_time_buckets(lcs) #need to deal with missing start date here (apprx. 9863)
 
     #### add geographies ####
     lcs = gdf_from_latlong(lcs, lat='latitude', long='longitude')  
@@ -52,6 +55,92 @@ def obtain_lcs():
     results = client.get('xqx5-8hwx', city='CHICAGO', limit='9999999999')
     lcs = pd.DataFrame.from_records(results)
     return lcs
+
+def create_time_buckets(lcs, bucket_size, start_date=None):
+    '''
+    Labels each license with a time period. Time periods are defined by the
+    bucket size and start date arguments and cut based on the
+    license_start_date column.
+
+    Inputs:
+    lcs (pandas dataframe): a license dataset
+    bucket_size (dictionary): defines the size of each bucket, valid key-value
+        pairs are parameters for a dateutil.relativedelta.relativedelta object
+    start_date (str): first day to include in a bucket, string of the form
+        YYYY-MM-DD or YYYYMMDD
+    '''
+    if not start_date:
+        start_date = min(lcs.license_start_date)
+
+    start_date = pd.to_datetime(start_date)
+    bucket_size = relativedelta(**bucket_size)
+    lcs['time_period'] = float('nan')
+
+
+    i = 0
+    stop_date = max(lcs.license_start_date)
+    while  start_date + i * bucket_size < stop_date:
+        start_mask = start_date + i * bucket_size <= lcs.license_start_date
+        end_mask = lcs.license_start_date < start_date + (i + 1) * bucket_size
+        lcs.loc[start_mask & end_mask, 'time_period'] = i
+        i += 1
+
+    return lcs
+
+def create_account_site_time(groupdf):
+    '''
+    Converts a dataframe of observations with the same account id, site id, and
+    time period into a single representative series.
+
+    Inputs:
+    groupdf (pandas dataframe): a licenses dataframe where all rows have the
+        same account id, site id, and time period.
+
+    Returns: pandas series
+    '''
+    copy_vals = ['account_number', 'site_number', 'legal_name', 'address',
+                 'city', 'state', 'zip_code', 'latitude', 'longitude', 
+                 'location', 'police_district', 'precinct', 'ward',
+                 'ward_precinct', 'ssa']
+    record = pd.Series(index=copy_vals)
+    record.loc[copy_vals] = groupdf.iloc[0].loc[copy_vals]
+
+    
+    record['n_licenses'] = len(groupdf)
+
+    record['earliest_lsc_exp_date'] = min(groupdf.license_start_date)
+    record['latest_lsc_exp_date'] = max(groupdf.expiration_date)
+
+    record['business_activity_ids'] = groupdf.business_activity_id.unique()
+    record['license_codes'] = groupdf.license_code.unique()
+    record['application_types'] = groupdf.license_code.unique()
+    record['cndtl_approval_pct'] = (np.sum(groupdf.conditional_approval == 'Y') /
+                                    len(groupdf))
+    record['lsc_revoked_pct'] = (np.sum((groupdf.license_status == 'REV') |
+                                        (groupdf.license_status == 'REA')) /
+                                 len(groupdf))
+    record['lsc_canceled_pct'] = (np.sum((groupdf.license_status == 'AAC') |
+                                          (groupdf.license_status == 'AAC')) /
+                                  len(groupdf))
+
+    return record
+
+def collapse_licenses(lcs):
+    '''
+    Collapses all the licenses associated with a given accountid-siteid based on
+    their time period so that each row represents one accountid-siteid-time
+    period.
+
+    Inputs:
+    lcs (pandas dataframe): a license dataset
+
+    Returns: pandas dataframe
+    '''
+    lcs_collapse = lcs.groupby(['business_id', 'time_period'])\
+                      .apply(create_account_site_time)
+
+    return lcs_collapse
+
 
 def convert_lcs_dtypes(lcs):
     lcs_dates = ['application_created_date', 
