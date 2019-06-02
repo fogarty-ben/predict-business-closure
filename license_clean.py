@@ -18,28 +18,39 @@ SDT = 'license_start_date'
 EDT = 'expiration_date'
 IDT = 'date_issued'
 ZILLOW_GEO = 'data/ZillowNeighborhoods-IL.shp'
+MAX_REQS = 1000000000
 
 
 def get_lcs_data():
 
+    print('Downloading licenses from Chicago Open Data Portal...')
     lcs = obtain_lcs()
+
+    print('Cleaning data...')
     lcs = convert_lcs_dtypes(lcs)
     lcs = clean_lcs(lcs)
-    lcs = create_time_buckets(lcs) #need to deal with missing start date before here (apprx. 9863)
+
+    print('Changing unit of analysis...')
+    lcs = create_time_buckets(lcs, {'years': 2}, '2002-01-01') #parameterize?; need to deal with missing start date before here (apprx. 9863)
+    lcs = collapse_licenses(lcs)
+
+    print('Generating outcome variable...')
+    lcs = add_outcome_variable(lcs)
 
     #### add geographies ####
-    lcs = gdf_from_latlong(lcs, lat='latitude', long='longitude')  
+    print('Creating geospatial properties...')
+    lcs = lcs.reset_index()
+    lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')  
 
     # add zillow neighborhoods
+    print('Linking Zillow Neighborhoods...')
     nbh = gpd.read_file(ZILLOW_GEO)
     nbh = nbh[nbh.City == 'Chicago'].drop(columns=['State', 'County', 'City']) 
-    lcs = add_geography_id(lcs, nbh)
+    lcs = add_geography_id(lcs, nbh) #issue here
     
     # add census tracts
+    print('Linking census tracts...')
     lcs = add_census_tracts(lcs)
-
-    # sort by start date
-    lcs.sort_values(by=SDT, inplace=True)
 
     # if pickle:
     #     if not os.path.exists('pickle'):
@@ -48,11 +59,10 @@ def get_lcs_data():
 
     return lcs
 
-
 def obtain_lcs():
     tokens = load_tokens('tokens.json')
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
-    results = client.get('xqx5-8hwx', city='CHICAGO', limit='9999999999')
+    results = client.get('xqx5-8hwx', city='CHICAGO', limit=MAX_REQS)
     lcs = pd.DataFrame.from_records(results)
     return lcs
 
@@ -85,40 +95,7 @@ def create_time_buckets(lcs, bucket_size, start_date=None):
         lcs.loc[start_mask & end_mask, 'time_period'] = i
         i += 1
 
-    return lcs
-
-def create_account_site_time(groupdf):
-    '''
-    Converts a dataframe of observations with the same account id, site id, and
-    time period into a single representative series.
-
-    Inputs:
-    groupdf (pandas dataframe): a licenses dataframe where all rows have the
-        same account id, site id, and time period.
-
-    Returns: pandas series
-    '''
-    copy_vals = ['account_number', 'site_number', 'legal_name', 'address',
-                 'city', 'state', 'zip_code', 'latitude', 'longitude', 
-                 'location', 'police_district', 'precinct', 'ward',
-                 'ward_precinct', 'ssa']
-    record = groupdf.iloc[0].loc[copy_vals].to_list()
-
-    
-    record.append(len(groupdf))
-
-    record.append(min(groupdf.license_start_date))
-    record.append(max(groupdf.expiration_date))
-    record.append(groupdf.license_code.unique())
-    
-    record.append(np.mean(groupdf.conditional_approval == 'Y'))
-    record.append(np.mean((groupdf.license_status == 'REV') |
-                                        (groupdf.license_status == 'REA'))  )  
-    record.append(np.mean((groupdf.license_status == 'AAC') |
-                                          (groupdf.license_status == 'AAC')))
-    record.append(np.mean(groupdf.application_type == 'RENEW'))
-    
-    return record
+    return lcs[lcs.time_period.notna()]
 
 def collapse_licenses(lcs):
     '''
@@ -133,7 +110,7 @@ def collapse_licenses(lcs):
     '''
     lcs['rev_or_rea'] = (lcs.license_status == 'REV') | (lcs.license_status == 'REA')
     lcs['canceled'] = lcs.license_status == 'AAC'
-    lcs.conditional_approval = lcs.conditional_approval == 'Y'
+    lcs['conditional_tf'] = lcs.conditional_approval == 'Y'
     lcs_collapse = lcs.groupby(['account_number', 'site_number', 'time_period'])\
                       .agg({"license_id": 'count',
                             "legal_name": "first",
@@ -147,7 +124,7 @@ def collapse_licenses(lcs):
                             "business_activity_id": set,
                             "rev_or_rea": 'mean',
                             "canceled": 'mean',
-                            "conditional_approval": 'mean',
+                            "conditional_tf": 'mean',
                             "address": "first",
                             "city": "first",
                             "state": "first",
@@ -175,6 +152,41 @@ def collapse_licenses(lcs):
 
     return lcs_collapse
 
+def find_in_nextpd(row, lcs):
+    '''
+    Checks if an account_id, site_name combination appears in the index of a
+    license dataset during the next time period.
+
+    Inputs:
+    row (pandas series): one account_id-site_name-time_period record
+    lcs (pandas dataset): a full license dataset
+
+    Returns: boolean
+    '''
+    account_number, site_number, time_period = row.name
+
+    return (account_number, site_number, time_period + 1) in lcs.index
+
+def add_outcome_variable(lcs):
+    '''
+    Generates a column called 'no_renew_nextpd' that is true if a particular
+    account_id-site_name does not appear in the next period and false otherwise.
+
+    Inputs:
+    lcs (pandas dataframe): a license dataset
+
+    Returns pandas dataframe
+    '''
+    lcs['no_renew_nextpd'] = None
+
+    max_timepd = max(lcs.index.get_level_values('time_period'))
+    mask = lcs.index.get_level_values('time_period') != max_timepd
+    lcs.loc[mask, 'no_renew_nextpd'] = lcs.loc[mask, :].apply(find_in_nextpd,
+                                                             axis=1,
+                                                             args=[lcs])
+
+    return lcs
+
 def convert_lcs_dtypes(lcs):
     lcs_dates = ['application_created_date', 
                  'application_requirements_complete', 
@@ -189,11 +201,10 @@ def convert_lcs_dtypes(lcs):
     lcs['longitude'] = lcs['longitude'].astype('float64')
     return lcs
 
-def clean_lcs(lcs):
+def clean_lcs(lcs): #May want to talk about what we're doing in this function
     '''
     clean business licenses data
     '''
-
     # fill license start dates
     # for issuance type: fill start date with issue date
     nastart_issue = lcs[SDT].isna() & (lcs['application_type'] == 'ISSUE')
@@ -215,20 +226,22 @@ def add_census_tracts(lcs):
     tokens = load_tokens('tokens.json')
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
     
-    tracts10 = pd.DataFrame(client.get('74p9-q2aq', select='the_geom,tractce10'))
+    tracts10 = pd.DataFrame(client.get('74p9-q2aq', select='the_geom,tractce10',
+                            limit=MAX_REQS))
     tracts10['the_geom'] = tracts10.the_geom\
                                        .apply(shapely.geometry.shape)
     tracts10 = gpd.GeoDataFrame(tracts10, geometry='the_geom')
-    lcs_10 = add_geography_id(lcs[lcs.license_start_date >= parser.parse('2010-01-01')],
+    lcs_10 = add_geography_id(lcs[lcs.min_start_date >= parser.parse('2010-01-01')],
                               tracts10)
     lcs_10.rename(columns={'tractce10':'census_tract'}, inplace=True) 
 
     # pre 2010
-    tracts00 = pd.DataFrame(client.get('4hp8-2i8z', select='the_geom,census_tra'))
+    tracts00 = pd.DataFrame(client.get('4hp8-2i8z', select='the_geom,census_tra',
+                            limit=MAX_REQS))
     tracts00['the_geom'] = tracts00.the_geom\
                                        .apply(shapely.geometry.shape)
     tracts00 = gpd.GeoDataFrame(tracts00, geometry='the_geom')
-    lcs_00 = add_geography_id(lcs[lcs.license_start_date < parser.parse('2010-01-01')], 
+    lcs_00 = add_geography_id(lcs[lcs.min_start_date < parser.parse('2010-01-01')], 
                               tracts00)
     lcs_00.rename(columns={'census_tra':'census_tract'}, inplace=True) 
 
@@ -237,9 +250,9 @@ def add_census_tracts(lcs):
     return lcs
 
 
-def gdf_from_latlong(df, lat, long):
+def gdf_from_latlong(df, lat, long_):
     '''convert a pandas dataframe to a geodataframe on lat long'''
-    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[long], df[lat]))
+    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[long_], df[lat]))
     return gdf
 
 
