@@ -18,8 +18,12 @@ IDT = 'date_issued'
 ZILLOW_GEO = 'data/ZillowNeighborhoods-IL.shp'
 
 
-def get_lcs_data():
+def get_lcs_data(pickle_data=False):
+    '''
+    obtain and clean business licenses data 
 
+    returns: (geodataframe) clean business licenses dataframe
+    '''
     lcs = obtain_lcs()
     lcs = convert_lcs_dtypes(lcs)
     lcs = clean_lcs(lcs)
@@ -38,15 +42,19 @@ def get_lcs_data():
     # sort by start date
     lcs.sort_values(by=SDT, inplace=True)
 
-    # if pickle:
-    #     if not os.path.exists('pickle'):
-    #         os.mkdir('pickle')
-    #     pickle.dump(lcs_raw, open("pickle/lcs", "wb" ))
+    # pickle clean dataframe
+    if pickle_data:
+        if not os.path.exists('pickle'):
+            os.mkdir('pickle')
+        pickle.dump(lcs_raw, open("pickle/lcs", "wb" ))
 
     return lcs
 
 
 def obtain_lcs():
+    '''
+    obtain business licenses data from chicago open data portal.
+    '''
     tokens = load_tokens('tokens.json')
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
     results = client.get('xqx5-8hwx', city='CHICAGO', limit='9999999999')
@@ -54,6 +62,13 @@ def obtain_lcs():
     return lcs
 
 def convert_lcs_dtypes(lcs):
+    '''
+    Convert data types of business licenses.
+
+    Input: 
+        lcs: (dataframe) raw business licenses data
+    Returns: updated dataframe
+    '''
     lcs_dates = ['application_created_date', 
                  'application_requirements_complete', 
                  'payment_date',
@@ -69,7 +84,11 @@ def convert_lcs_dtypes(lcs):
 
 def clean_lcs(lcs):
     '''
-    clean business licenses data
+    Clean business licenses data.
+
+    Input: 
+        lcs: (dataframe) raw business licenses data
+    Returns: updated dataframe    
     '''
 
     # add business id: account_number-site_number
@@ -90,7 +109,16 @@ def clean_lcs(lcs):
     return lcs
 
 
-def add_census_tracts(lcs):   
+def add_census_tracts(lcs):
+    '''
+    add census tract number to business licenses dataset through spatial join
+    with census tract boundaries (2000 and 2010) from chicago open data oprtal
+
+    Input: 
+        lcs: (geodataframe) business licenses data
+    Returns: geodataframe with census tract number
+    
+    '''
     # census tracts
     # post 2010
     tokens = load_tokens('tokens.json')
@@ -119,19 +147,31 @@ def add_census_tracts(lcs):
 
 
 def gdf_from_latlong(df, lat, long):
-    '''convert a pandas dataframe to a geodataframe on lat long'''
+    '''
+    convert a pandas dataframe to a geodataframe on lat long
+
+    Inputs:
+        df: (dataframe) original df
+        lat: (str) column name for latitude
+        long: (str) column name for longitude
+    
+    Returns: a geodataframe
+    '''
     gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[long], df[lat]))
     return gdf
 
 
 def add_geography_id(gdf, b):
     '''
-    merge with a geography boundaries file
+    spatial join gdf with points (lat, long) with another geodataframe with
+    polygons (boundaries).
 
-    Input:
-        gdf: (GeoDataFrame) 
-        b: (Geojson) boundaries
-    Returns: (GeoDataFrame)
+    Input: 
+        gdf: geodataframe with points
+        b: geodataframe with polygons (boundaries)
+
+    Returns: (geodataframe) gdf with geography id from b
+    
     '''
     b.crs = {'init': 'epsg:4326'}
     gdf.crs = {'init': 'epsg:4326'}

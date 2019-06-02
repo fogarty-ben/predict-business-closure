@@ -85,11 +85,11 @@ class Pipeline:
         '''
         self.df = None
         self.label = None
-        self.predictor_sets = []
-        self.predictor_combos = []
-        self.models = []
-        self.train_test_times = []
-        self.grid_size = None
+        self.predictor_sets = [] # lists of feature sets (lists)
+        self.predictor_combos = [] # list of feature combinations (lists) to iterate over
+        self.models = [] # model results
+        self.train_test_times = [] # train test time cutoffs
+        self.grid_size = None 
         self.paramgrid = None
         self.clfs = {
                     'RF': RandomForestClassifier(n_estimators=50, n_jobs=-1),
@@ -114,12 +114,27 @@ class Pipeline:
 
     def add_predictor_sets(self, predictor_sets, reset=True):
         '''
-        predictor_sets: list of lists
+        Add feature sets to pipeline.
+        Re-generate all feature set combinations and store the feature lists
+        from those combinations in pipeline.
+
+        Input:
+            predictor_sets: list of lists of features. 
+                            e.g. predictor_sets = [census_features, business_features, cta_features]
+                            census_features = [age, median_income]
+                            business_features = [time_in_business, license_code]
+                            cta_features = [monthly_ridership, num_stops_nearby]
+                            
+            reset: (optional bool, default=True) whether to clear self.predictor_sets before 
+                    adding predictor_sets
+        
+        Update attributes: self.predictor_sets, self.predictor_combos
+
         '''
         if reset:
             self.predictor_sets = []
 
-        # update list of predictor sets
+        # update list of feature sets
         self.predictor_sets.extend(predictor_sets)
 
         # update feature combinations
@@ -134,15 +149,58 @@ class Pipeline:
 
     def run(self, df, time_col, predictor_sets, label, start, end, test_window_years, 
             outcome_lag_years, output_dir, output_filename, grid_size='test', thresholds=[], 
-            ks=list(np.arange(0, 1, 0.1)), save_output=True, debug=False):
+            ks=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], save_output=True, debug=False):
         '''
-        Run the pipeline using temporal cross validation. 
+        Run the pipeline using temporal cross validation: split data, preprocess data, 
+        build models, and evaluate models.
+        
+        Evaluation results are saved as csv files and stored in self.models.
+        Plots are saved as png files.
 
         Inputs:
+            df: (pd dataframe) 
+                clean dataset
+            time_col: (str) 
+                column name for the time variable to do train/test split on
+            predictor_sets: (list of lists) 
+                list of features sets
+                            e.g. predictor_sets = [census_features, business_features, cta_features]
+                            census_features = [age, median_income]
+                            business_features = [time_in_business, license_code]
+                            cta_features = [monthly_ridership, num_stops_nearby]
+            label: (str)
+                outcome variable
+            start, end: (datetime objects)
+                start and end of the entire timeframe before splitting
+            test_window_years: (int)
+                test set size in years
+            outcome_lag_years: (int)
+                size of outcome lag after training and test sets in years 
+            output_dir:(str) 
+                directory for output
+            output_filename: (str) 
+                filename for evaluation file.
+            grid_size: (str) 
+                parametergrid size. 'large', 'small' or 'test'
+            ks: (optional list, default = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+                list of floats between 0-1. Floats are for labeling top k (%) highest scores as 1 
+            thresholds (optional list, default=[]): 
+                list of floats between 0-1. Floats are for probablity score thresholds above which
+                predicions are labeled as 1. thresholds will be overriden by ks if both parameters
+                have values
+            save_output: (optional bool, default=True) 
+                whether to save evaluation output.
+            debug: (optional bool, default=False) 
+                whether to print debug statements
 
-        predictor_sets: list of lists of predictors
+        Outputs: (saved in output_dir)
+            1. csv file containing evaluation results for each model:
+                COLUMNS: model_id (N_split-i), N_split, i, label, model_type, roc_auc, k,
+                precision, recall, accuracy, params, predictors
 
-        Output:
+            2. png files of precision-recall plots for each model
+
+            3. png files of roc plots for each model
 
         '''
         if debug:
@@ -303,6 +361,7 @@ class Pipeline:
         Set parameter grid.
 
         Input: grid_size: (str) 'large', 'small', or 'test'
+        Updates: self.paramgrid
         '''
         assert grid_size in ['large', 'small', 'test']
         self.grid_size = grid_size
@@ -339,11 +398,13 @@ class Pipeline:
 
     def get_train_test_times(self, start, end, test_window_years, outcome_lag_years):
         '''
-        start: (datetime) start time of all data
-        end: (datetime) end time of all data
-        test_window_years: (int/float) time length of a test set in months
-        outcome_lag_years: (int/foat) lag needed to get the outcome in days
+        Inputs:
+            start: (datetime) start time of all data
+            end: (datetime) end time of all data
+            test_window_years: (int/float) time length of a test set in years
+            outcome_lag_years: (int/foat) lag needed to get the outcome in years
 
+        Updates self.train_test_times
         '''
         results = []
 
@@ -391,6 +452,8 @@ def compare_model_precisions_at_k(evaluations_filepath, k,  Ns=[], model_types=[
                                     Default=[]
         save_output: (optional bool) whether to save plot
         output_filepath: (optional str)
+
+    Outputs: a png file containing a comparison plot
     '''
     ev = pd.read_csv(evaluations_filepath)
     
@@ -421,6 +484,8 @@ def compare_model_recalls_at_k(evaluations_filepath, k,  Ns=[], model_types=[], 
                                     Default=[]
         save_output: (optional bool) whether to save plot
         output_filepath: (optional str)
+
+    Output: a png file containing a comparison plot
     '''
     ev = pd.read_csv(evaluations_filepath)
 
@@ -450,6 +515,8 @@ def compare_model_aucs(evaluations_filepath, Ns=[], model_types=[], model_ids=[]
                                     Default=[]
         save_output: (optional bool) whether to save plot
         output_filepath: (optional str)
+
+    Output: a png file containing a comparison plot    
     '''
     ev = pd.read_csv(evaluations_filepath)
 

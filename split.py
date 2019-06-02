@@ -30,6 +30,10 @@ LABEL = 'closed'
 ### Train test split
 
 def prepare(lcs):
+    '''
+    create a pipeline object and get training and testing time split.
+
+    '''
     pipeline = pp.Pipeline()
     pipeline.load_clean_data(lcs)
     pipeline.get_train_test_times(START, END, 2, 2)
@@ -42,10 +46,28 @@ def prepare(lcs):
     return pipeline
 
 
-### train test split for one set of times
+### train test split for one temporal set
 
 def train_test_split(lcs, time_col, train_start, train_end, test_start, test_end,
                    predictor_cols=PREDICTOR_COLS, label=LABEL):
+
+    '''
+    split data into training and testing sets.
+    
+    Inputs:
+            lcs: (pd dataframe) 
+                clean business licenses dataset
+            time_col: (str) 
+                column name for the time variable to do train/test split on
+            train_start, train_end, test_start, test_end: (datetime objects) 
+                time bound for training and test set
+            predictor_cols: (list, default=PREDICTOR_COLS) 
+                predictor column names
+            label: (str, default=LABEL)
+                outcome column name 
+
+    Returns: X_train, y_train, X_test, y_test
+    '''
     train_df = lcs[(lcs[time_col] >= train_start) & (lcs[time_col] <= train_end)]
     test_df = lcs[(lcs[time_col] >= test_start) & (lcs[time_col] <= test_end)]
     lag_df = lcs[(lcs[time_col] > train_end) & (lcs[time_col] < test_start)]
@@ -70,8 +92,17 @@ def train_test_split(lcs, time_col, train_start, train_end, test_start, test_end
 
 
 def get_special_apptypes_by_business(df):
-    '''get dummies for whether business has applied for non-issuance/renewal licenses
-    within the period'''
+    '''
+    get dummies for whether a business has applied for non-issuance/renewal 
+    licenses within the period
+
+    input:
+        df: dataframe of business licenses
+
+    returns: a dataframe containing rows of businesses with the following columns:
+             businesse_id, applied_for_type_C_CAPA, applied_for_type_C_EXPA, applied_for_type_C_LOC
+
+    '''
     app_type_dummies = pd.get_dummies(df['application_type'], prefix='applied_for_type')
     other_app_type_dummies = app_type_dummies[['applied_for_type_C_CAPA', 
                                                'applied_for_type_C_EXPA',
@@ -85,10 +116,30 @@ def get_special_apptypes_by_business(df):
 
 
 def get_num_licenses_applied(df):
+    '''
+    get the number of licenses a business applied in df
+    
+    input:
+        df: dataframe with rows of licenses
+    returns: dataframe with rows of businesses and the following columns:
+             business_id, num_licenses
+    '''
     return df.groupby('business_id').size().reset_index().rename(columns={0: 'num_licenses'})
 
 
 def get_latest_license(df):
+    '''
+    get the latest issuance/renewal license for each business within the
+    train/test period.
+    input:
+        df: dataframe with rows of licenses
+
+    returns: 
+        dataframe with rows of businesses' latest issuance/renewal license, 
+        merged with dummy columns returned by get_special_apptypes_by_business()
+        and the column of num_licenses returend by get_num_licenses_applied()
+
+    '''
     other_type_by_bus = get_special_apptypes_by_business(df)
     num_licenses = get_num_licenses_applied(df)
     latest = df[df['application_type'].isin(['RENEW','ISSUE'])].groupby(
@@ -100,6 +151,16 @@ def get_latest_license(df):
 # ## Generate outcome
 
 def generate_label(latest, set_end, lag_df):
+    '''
+    generate outcome label
+
+    latest: (dataframe) the latest licenses within a train/test set
+    set_end: (datetime obj) end date of the train/test set
+    lag_df: (dataframe) the latest licenses within the lag period after
+            the train/test set
+
+    returns none
+    '''
     
     # init
     latest['closed'] = 0
@@ -119,6 +180,13 @@ def generate_label(latest, set_end, lag_df):
 
 
 def split_Xy(train, test, predictor_cols, label):
+    '''
+    split train and test dataframes into X_train, y_train, X_test, y_test
+
+    train, test: (dataframes)
+    predictor_cols: (list) feature columns
+    label: (str) outcome variable name
+    '''
     X_train = train[predictor_cols]
     y_train = train[label]
     X_test = test[predictor_cols]
