@@ -115,6 +115,10 @@ def get_ecofeatures(ump_filepath,gdp_filepath):
     ump = pd.read_excel(ump_filepath, sheet_name='Data')
     gdp = pd.read_excel(gdp_filepath, sheet_name='Data')
 
+    WINDOW=1
+    gdp['GDP_growth'] = gdp['GDP_billion_dollars'].pct_change(periods=WINDOW); 
+    gdp = gdp.loc[gdp['Year'] > 2001]
+
     return ump, gdp
 
 
