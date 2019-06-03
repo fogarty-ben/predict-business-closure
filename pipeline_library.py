@@ -10,8 +10,7 @@ from copy import deepcopy
 from textwrap import wrap
 import json
 import random
-
-import dateutil.relativedelta as relativedelta
+from dateutil.relativedelta import relativedelta
 from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree
 import graphviz
 import pandas as pd
@@ -820,7 +819,7 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
 
     return fig
 
-def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None):
+def create_temporal_splits(data, time_period_col, bucket_size, time_buckets):
     '''
     Splits into different sets by time intervals.
 
@@ -841,6 +840,7 @@ def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None)
     Returns: tuple of list of pandas dataframes, the first of which contains
         test sets and the second of which contains training sets
     '''
+<<<<<<< HEAD
     time_length = relativedelta.relativedelta(**time_length)
 
     if gap:
@@ -916,3 +916,27 @@ def set_dummy(df, dummy_var, d_var):
     return df
 
 
+=======
+    times_to_split = []
+    training_splits = []
+    testing_splits = []
+    
+    # get start and ending time periods
+    start = time_buckets[0]
+    end = time_buckets[-2]
+
+    # get temporal split cutoff times
+    train_period = [0]
+    test_period = 0 + bucket_size
+    while test_period + bucket_size <= end:
+        times_to_split.append([list(train_period), test_period])
+        test_period += 1
+        train_period.append(train_period[-1]+1)
+
+    # split data
+    for train_period, test_period in times_to_split:
+        training_splits.append(data[data[time_period_col].isin(train_period)])
+        testing_splits.append(data[data[time_period_col] == test_period])
+
+    return training_splits, testing_splits
+>>>>>>> d37deddaaa4ec49e0e86fcd8d9e5b7b127876d07
