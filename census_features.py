@@ -47,12 +47,10 @@ def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
     
     return df
 
-def get_zbp_data():
+def get_zbp_data(tokens):
     '''
     Temporary function to make merging code easier later.
     '''
-    tokens = load_tokens('tokens.json')
-
     cook_county_code = '031'
     illinois_code = '17'
 
@@ -146,12 +144,10 @@ def process_2010_education(row):
     
     return row
 
-def get_2000_census_data():
+def get_2000_census_data(tokens):
     '''
     Temporary function to make merging code easier later
     '''
-    tokens = load_tokens('tokens.json')
-
     base_urls = {'sf1': 'https://api.census.gov/data/2000/sf1',
                  'sf3': 'https://api.census.gov/data/2000/sf3'}
 
@@ -251,12 +247,10 @@ def get_2000_census_data():
 
     return pd.concat([race_2000, income_2000, educ_2000], axis=1)
     
-def get_2010_census_data():
+def get_2010_census_data(tokens):
     '''
     Temporary function to make merging code easier later
     '''
-    tokens = load_tokens('tokens.json')
-
     acs_url = 'https://api.census.gov/data/2010/acs/acs5'
 
     #ACS 2010 5yr, Detailed Table

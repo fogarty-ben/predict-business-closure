@@ -10,7 +10,7 @@ from IPython.display import display
 
 
 # Annexure I: CTA rides data [from API]
-def get_rides(token):
+def get_rides(tokens):
     '''
     Preparing cta rides at ZIP and Ward level
     Input: token for chicago data portal
@@ -20,7 +20,7 @@ def get_rides(token):
     token = xfs.load_tokens('tokens.json')
     rides_zip, rides_ward= xfs.get_rides(token)
     '''
-    client = Socrata('data.cityofchicago.org', token['chicago_open_data_portal'])
+    client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
 
     # Get CTA data
     c_rides = client.get('t2rn-p8d7', limit=50000)
@@ -67,7 +67,7 @@ def get_rides(token):
 
 
 # Annexure II: Zillow Real Estate square feet price data [from downloaded file]
-def get_realestate(nbh_filepath, zip_filepath):
+def get_realestate(zip_filepath):
     '''
     Preparing real-estate median square feet price at ZIP and Neighborhood level
     Input: Input filepaths for Zillow Data
@@ -80,28 +80,28 @@ def get_realestate(nbh_filepath, zip_filepath):
     '''
 
     # Load & subset Sqaure foot price data at Neighborhood
-    zlm = pd.read_csv(nbh_filepath)
-    zlm_ch = zlm.loc[zlm['City']=='Chicago']
-    zlm_ch = zlm_ch.drop(['City', 'State', 'Metro','CountyName'], axis=1)
+    # zlm = pd.read_csv(nbh_filepath)
+    # zlm_ch = zlm.loc[zlm['City']=='Chicago']
+    # zlm_ch = zlm_ch.drop(['City', 'State', 'Metro','CountyName'], axis=1)
 
     # Load & subset Sqaure foot price data at Zip
     zmh = pd.read_csv(zip_filepath,encoding='latin-1')
     zmh_ch = zmh.loc[zmh['City']=='Chicago']
-    zmh_ch=zmh_ch.drop(['City', 'State', 'Metro','CountyName'], axis=1)
+    zmh_ch = zmh_ch.drop(['City', 'State', 'Metro','CountyName'], axis=1)
 
     # Pivot Attributes for Reshaping Wide to Long format for aggregation
-    piv=['RegionID','RegionName','SizeRank']
-    val=zlm_ch.columns[~zlm_ch.columns.isin(piv)]
+    piv  = ['RegionID','RegionName','SizeRank']
+    val = zmh_ch.columns[~zmh_ch.columns.isin(piv)]
     # Neighborhood
-    zn_l = zlm_ch.melt(id_vars=piv,  value_vars=val, var_name='Month', value_name='MedianValuePerSqfeet_Nbh')
+    # zn_l = zlm_ch.melt(id_vars=piv,  value_vars=val, var_name='Month', value_name='MedianValuePerSqfeet_Nbh')
     # Zip
     zz_l = zmh_ch.melt(id_vars=piv,  value_vars=val, var_name='Month', value_name='MedianValuePerSqfeet_Zip')
 
-    return zn_l, zz_l
+    return zz_l
 
 
 # Annexure III: Economy data on GDP and Unemployment
-def get_ecofeatures(ump_filepath,gdp_filepath):
+def get_ecofeatures(ump_filepath, gdp_filepath):
     '''
     Preparing micro market recovery program permits by ZIP and ward level
     Input: input filepaths

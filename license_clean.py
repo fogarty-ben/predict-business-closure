@@ -11,24 +11,33 @@ import json
 import shapely
 from sodapy import Socrata
 import matplotlib.pyplot as plt
+import census_features as cen
+import additional_features as add
+from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-SDT = 'license_start_date'
-EDT = 'expiration_date'
-IDT = 'date_issued'
-ZILLOW_GEO = 'data/ZillowNeighborhoods-IL.shp'
 MAX_REQS = 1000000000
+TOKENS_FILEPATH = 'tokens.json'
+ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
+UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
+GDP_FILEPATH = 'data/Chicago_gdp2001-2017.xlsx'
+CTA_MONTHS = 6
+REAL_ESTATE_MONTHS = 6
 
-
-def get_lcs_data():
+def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS, 
+                 real_estate_months=REAL_ESTATE_MONTHS):
     '''
     obtain and clean business licenses data 
-
+    
+    input:
+        tokens_filepath: (str) filepath to a tokens json
     returns: (geodataframe) clean business licenses dataframe
     '''
+    tokens = load_tokens(tokens_filepath)
+
     print('Downloading licenses from Chicago Open Data Portal...')
-    lcs = obtain_lcs()
+    lcs = obtain_lcs(tokens)
 
     print('Cleaning data...')
     lcs = convert_lcs_dtypes(lcs)
@@ -47,11 +56,11 @@ def get_lcs_data():
     lcs = lcs.reset_index()
     lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')  
 
-    # add zillow neighborhoods
-    print('Linking Zillow Neighborhoods...')
-    nbh = gpd.read_file(ZILLOW_GEO)
-    nbh = nbh[nbh.City == 'Chicago'].drop(columns=['State', 'County', 'City']) 
-    lcs = add_geography_id(lcs, nbh) #issue here
+    # # add zillow neighborhoods
+    # print('Linking Zillow Neighborhoods...')
+    # nbh = gpd.read_file(ZILLOW_GEO)
+    # nbh = nbh[nbh.City == 'Chicago'].drop(columns=['State', 'County', 'City']) 
+    # lcs = add_geography_id(lcs, nbh) #issue here
     
     # add census tracts
     print('Linking census tracts...')
@@ -59,14 +68,28 @@ def get_lcs_data():
 
     # getting additional datasets
     print('Loading additional datasets...')
+    census_2000 = cen.get_2000_census_data(tokens)
+    census_2010 = cen.get_2010_census_data(tokens) 
+    zbp = cen.get_zbp_data(tokens)
+    cta_zip, cta_ward = add.get_rides(tokens)
+    real_estate = add.get_realestate(ZILLOW_FILEPATH)
+    ump, gdp = add.get_ecofeatures(UMP_FILEPATH, GDP_FILEPATH)
+
+    print('Linking additional datasets...')
+    lcs = link_zbp_licenses(zbp, lcs)
+    lcs = link_census_licenses(census_2000, census_2010, lcs)
+    lcs = link_cta_licenses(cta_zip, lcs, cta_months, ward=False)
+    lcs = link_cta_licenses(cta_ward, lcs, cta_months, ward=True)
+    lcs = link_real_estate_licenses(real_estate, lcs, real_estate_months)
+    lcs = link_gdp_licenses(gdp, lcs)
+    lcs = link_ump_licenses(ump, lcs)
 
     return lcs
 
-def obtain_lcs():
+def obtain_lcs(tokens):
     '''
     obtain business licenses data from chicago open data portal.
     '''
-    tokens = load_tokens('tokens.json')
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
     results = client.get('xqx5-8hwx', city='CHICAGO', limit=MAX_REQS)
     lcs = pd.DataFrame.from_records(results)
@@ -229,13 +252,13 @@ def clean_lcs(lcs): #May want to talk about what we're doing in this function
     '''
     # fill license start dates
     # for issuance type: fill start date with issue date
-    nastart_issue = lcs[SDT].isna() & (lcs['application_type'] == 'ISSUE')
-    lcs.loc[nastart_issue, SDT] = lcs.loc[nastart_issue, IDT]
+    nastart_issue = lcs['license_start_date'].isna() & (lcs['application_type'] == 'ISSUE')
+    lcs.loc[nastart_issue, 'license_start_date'] = lcs.loc[nastart_issue, 'date_issued']
     # for other types: drop (negligible)
-    lcs = lcs.dropna(subset=[SDT], axis=0)
+    lcs = lcs.dropna(subset=['license_start_date'], axis=0)
 
     # drop rows with negative license length
-    lcs = lcs[(lcs[EDT] - lcs[SDT]) > timedelta(days=0)]
+    lcs = lcs[(lcs['expiration_date'] - lcs['license_start_date']) > timedelta(days=0)]
 
     # drop rows with no location
     lcs = lcs.dropna(subset=['location'], axis=0)
