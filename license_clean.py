@@ -35,7 +35,8 @@ def get_lcs_data():
     lcs = clean_lcs(lcs)
 
     print('Changing unit of analysis...')
-    lcs = create_time_buckets(lcs, {'years': 2}, '2002-01-01') #parameterize?; need to deal with missing start date before here (apprx. 9863)
+    lcs = create_time_buckets(lcs, {'years': 2}, 'license_start_date',
+                                       '2002-01-01') #parameterize?; need to deal with missing start date before here (apprx. 9863)
     lcs = collapse_licenses(lcs)
 
     print('Generating outcome variable...')
@@ -68,32 +69,37 @@ def obtain_lcs():
     lcs = pd.DataFrame.from_records(results)
     return lcs
 
-def create_time_buckets(lcs, bucket_size, start_date=None):
+def create_time_buckets(lcs, bucket_size, date_col, start_date=None):
     '''
     Labels each license with a time period. Time periods are defined by the
-    bucket size and start date arguments and cut based on the
-    license_start_date column.
+    bucket size and start date arguments and cut based on the date_col
+    argument.
 
     Inputs:
     lcs (pandas dataframe): a license dataset
     bucket_size (dictionary): defines the size of each bucket, valid key-value
         pairs are parameters for a dateutil.relativedelta.relativedelta object
+    date_col (col name): the column containg the date to split time periods on
     start_date (str): first day to include in a bucket, string of the form
         YYYY-MM-DD or YYYYMMDD
+
+    Returns: pandas dataframe
     '''
     if not start_date:
-        start_date = min(lcs.license_start_date)
+        start_date = min(lcs[date_col])
+    if not pd.core.dtypes.common.is_datetime_or_timedelta_dtype(lcs[date_col]):
+        lcs[date_col] = pd.to_datetime(lcs[date_col])
+
 
     start_date = pd.to_datetime(start_date)
     bucket_size = relativedelta(**bucket_size)
     lcs['time_period'] = float('nan')
 
-
     i = 0
-    stop_date = max(lcs.license_start_date)
-    while  start_date + i * bucket_size < stop_date:
-        start_mask = start_date + i * bucket_size <= lcs.license_start_date
-        end_mask = lcs.license_start_date < start_date + (i + 1) * bucket_size
+    stop_date = max(lcs[date_col])
+    while  start_date + i * bucket_size <= stop_date:
+        start_mask = start_date + i * bucket_size <= lcs[date_col]
+        end_mask = lcs[date_col] < start_date + (i + 1) * bucket_size
         lcs.loc[start_mask & end_mask, 'time_period'] = i
         i += 1
 
@@ -273,7 +279,7 @@ def add_census_tracts(lcs):
 
 
 
-def gdf_from_latlong(df, lat, long):
+def gdf_from_latlong(df, lat, long_):
     '''
     convert a pandas dataframe to a geodataframe on lat long
 

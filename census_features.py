@@ -177,7 +177,7 @@ def get_2000_census_data():
     race_2000 = race_2000.apply(process_race, axis=1)
 
     #Income
-    dec_2000_income = {'P053001': 'Median household income (1999 Dollars)',
+    dec_2000_income = {'P053001': 'Median household income (1999 dollars)',
                        'P089001': 'Total: Population for whom poverty status is determined',
                        'P089002': 'Income below poverty level'}
     
