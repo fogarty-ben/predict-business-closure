@@ -34,7 +34,8 @@ def get_rides(tokens):
 
     # Get CTA Station Mapping file to avoid another spatial join
     c_map = client.get('zbnc-zirh')
-    cta_map=pd.DataFrame.from_dict(c_map)
+    cta_map=pd.DataFrame.from_records(c_map)
+    print(cta_map)
 
     # Rename geo_id columns using dictionary (as specified in mapping file) from on CTA station geocodes 
     # the said variable names are defined in the source

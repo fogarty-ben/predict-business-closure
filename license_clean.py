@@ -17,7 +17,7 @@ from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-MAX_REQS = 10000000000
+MAX_REQS = 1000
 TOKENS_FILEPATH = 'tokens.json'
 ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
 UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
@@ -48,7 +48,6 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
                                        '2002-01-01') #parameterize?; need to deal with missing start date before here (apprx. 9863)
     lcs = collapse_licenses(lcs)
 
-    print(lcs.columns)
     print('Generating outcome variable...')
     lcs = add_outcome_variable(lcs)
 
@@ -72,15 +71,14 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     census_2000 = cen.get_2000_census_data(tokens)
     census_2010 = cen.get_2010_census_data(tokens) 
     zbp = cen.get_zbp_data(tokens)
-    cta_zip, cta_ward = add.get_rides(tokens)
+    cta_ward = add.get_rides(tokens)
     real_estate = add.get_realestate(ZILLOW_FILEPATH)
     ump, gdp = add.get_ecofeatures(UMP_FILEPATH, GDP_FILEPATH)
 
     print('Linking additional datasets...')
     lcs = link_zbp_licenses(zbp, lcs)
     lcs = link_census_licenses(census_2000, census_2010, lcs)
-    lcs = link_cta_licenses(cta_zip, lcs, cta_months, ward=False)
-    lcs = link_cta_licenses(cta_ward, lcs, cta_months, ward=True)
+    lcs = link_cta_licenses(cta_ward, lcs, cta_months)
     lcs = link_real_estate_licenses(real_estate, lcs, real_estate_months)
     lcs = link_gdp_licenses(gdp, lcs)
     lcs = link_ump_licenses(ump, lcs)

@@ -60,10 +60,10 @@ def link_census_licenses(census_2000, census_2010, licenses):
     return pre_2010.append(post_2010, ignore_index=True)\
                    .drop('period_startyr', axis=1)
 
-def link_cta_licenses(cta, licenses, months, ward=True):
+def link_cta_licenses(cta, licenses, months):
     '''
     Links 'El' station ridership with business license data based on a given
-    time length and geographic spedificity
+    time length.
 
     Inputs:
     cta (pandas dataframe): a set of cta ridership data
@@ -76,17 +76,7 @@ def link_cta_licenses(cta, licenses, months, ward=True):
     '''
     licenses['exp_month_year'] = licenses['max_expiration_date'].dt.to_period('M')
 
-    #ZIP CODE COLUMN IS WRONG AND CAN'T BE LINKED
-    if ward:
-        cta_geo = 'Wards'
-        license_geo = 'ward'
-        suffix = 'ward'
-    else:
-        cta_geo = 'Zip Codes'
-        license_geo = 'zip_code'
-        suffix = 'zip_code'
-
-    cta = cta.groupby(cta_geo)\
+    cta = cta.groupby('Ward')\
              [['month_year', 'monthtotal', 'avg_weekday_rides']]\
              .rolling(window=months, on='month_year')\
              .mean()\
@@ -95,14 +85,13 @@ def link_cta_licenses(cta, licenses, months, ward=True):
              .rename({'monthtotal': 'monthavg_last{}'.format(months),
                       'avg_weekday_rides': 'avg_weekday_rides_last{}'.format(months)},
                      axis=1)
-    cta['merge_col'] = cta[cta_geo].astype(str) + '_' + cta.month_year.astype(str)
+    cta['merge_col'] = cta['Ward'].astype(str) + '_' + cta.month_year.astype(str)
 
-    licenses['merge_col'] = (licenses[license_geo].astype(str) + '_' +
+    licenses['merge_col'] = (licenses['ward'].astype(str) + '_' +
                              licenses.exp_month_year.astype(str))
 
-    return pd.merge(licenses, cta, how='left', on='merge_col',
-                    suffixes=('', suffix))\
-             .drop(['exp_month_year', 'merge_col', cta_geo], axis=1)
+    return pd.merge(licenses, cta, how='left', on='merge_col')\
+             .drop(['exp_month_year', 'merge_col', 'Ward'], axis=1)
 
 def link_real_estate_licenses(real_estate, licenses, months):
     '''
