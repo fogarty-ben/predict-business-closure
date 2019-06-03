@@ -17,7 +17,7 @@ from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-MAX_REQS = 1000000000
+MAX_REQS = 10000000000
 TOKENS_FILEPATH = 'tokens.json'
 ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
 UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
@@ -44,10 +44,11 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = clean_lcs(lcs)
 
     print('Changing unit of analysis...')
-    lcs = create_time_buckets(lcs, {'years': 2}, 'license_start_date',
+    lcs, buckets = create_time_buckets(lcs, {'years': 2}, 'license_start_date',
                                        '2002-01-01') #parameterize?; need to deal with missing start date before here (apprx. 9863)
     lcs = collapse_licenses(lcs)
 
+    print(lcs.columns)
     print('Generating outcome variable...')
     lcs = add_outcome_variable(lcs)
 
@@ -109,7 +110,7 @@ def create_time_buckets(lcs, bucket_size, date_col, start_date=None):
     start_date (str): first day to include in a bucket, string of the form
         YYYY-MM-DD or YYYYMMDD
 
-    Returns: pandas dataframe
+    Returns: tuple of pandas dataframe, list of bucket starting dates
     '''
     if not start_date:
         start_date = min(lcs[date_col])
@@ -120,16 +121,18 @@ def create_time_buckets(lcs, bucket_size, date_col, start_date=None):
     start_date = pd.to_datetime(start_date)
     bucket_size = relativedelta(**bucket_size)
     lcs['time_period'] = float('nan')
+    buckets = []
 
     i = 0
     stop_date = max(lcs[date_col])
     while  start_date + i * bucket_size <= stop_date:
+        buckets.append(start_date + i * bucket_size)
         start_mask = start_date + i * bucket_size <= lcs[date_col]
         end_mask = lcs[date_col] < start_date + (i + 1) * bucket_size
         lcs.loc[start_mask & end_mask, 'time_period'] = i
         i += 1
 
-    return lcs[lcs.time_period.notna()]
+    return lcs[lcs.time_period.notna()], buckets
 
 def collapse_licenses(lcs):
     '''
@@ -149,7 +152,7 @@ def collapse_licenses(lcs):
                       .agg({"license_id": 'count',
                             "legal_name": "first",
                             "doing_business_as_name": 'first',
-                            "license_start_date": "min",
+                            "license_start_date": ["min", "max"],
                             "expiration_date": "max",
                             "application_type": set,
                             "license_code": set,
@@ -170,19 +173,37 @@ def collapse_licenses(lcs):
                             "precinct": "first",
                             "ward": "first",
                             "ward_precinct": "first",
-                            "ssa": "first"})\
-                      .rename({'license_id': 'n_licenses',
-                               'license_start_date': 'min_start_date',
-                               'expiration_date': 'max_expiration_date',
-                               'application_type': 'application_types',
-                               'license_code': 'license_codes',
-                               'license_description': 'license_descriptions',
-                               'business_activity': 'business_activities',
-                               'business_activity_id': 'business_activity_ids',
-                               'rev_or_rea': 'pct_revoked',
-                               'canceled': 'pct_canceled',
-                               'conditional_tf': 'pct_cndtl_approval'},
-                              axis=1)
+                            "ssa": "first"})
+    multi_index = lcs_collapse.columns.to_list()
+    ind = pd.Index(["_".join(entry) for entry in multi_index])
+    lcs_collapse.columns = ind
+    lcs_collapse = lcs_collapse.rename({"license_id_count": 'n_licenses',
+                                        "legal_name_first": 'legal_name',
+                                        "doing_business_as_name_first": 'doing_business_as_name',
+                                        'license_start_date_min': 'min_start_date',
+                                        'license_start_date_max': 'max_start_date',
+                                        'expiration_date_max': 'max_expiration_date',
+                                        'application_type_set': 'application_types',
+                                        "license_code_set": "license_codes",
+                                        "license_description_set": "license_descriptions",
+                                        "business_activity_set": "business_activities",
+                                        "business_activity_id_set": "business_activity_ids",
+                                        "rev_or_rea_mean": 'pct_revoked',
+                                        "canceled_mean": 'pct_canceled',
+                                        "conditional_tf_mean": 'pct_cndtl_approval',
+                                        "address_first": "address",
+                                        "city_first": "city",
+                                        "state_first": "state",
+                                        "zip_code_first": "zip_code",
+                                        "latitude_first": "latitude",
+                                        "longitude_first": "longitude",
+                                        "location_first": "location",
+                                        "police_district_first": "police_district",
+                                        "precinct_first": "precinct",
+                                        "ward_first": "ward",
+                                        "ward_precinct_first": "ward_precinct",
+                                        "ssa_first": "ssa"},
+                                        axis=1)
 
     return lcs_collapse
 
