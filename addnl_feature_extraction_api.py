@@ -30,7 +30,7 @@ def get_rides(token):
     cta['month_beginning'] = pd.to_datetime(cta['month_beginning'])
     cta['month_year'] = cta['month_beginning'].dt.to_period('M')
     cta_sub = cta[['station_id','month_year','avg_weekday_rides','monthtotal']]
-    cta_sub['station_id']=cta_sub['station_id'].astype(str)
+    cta_sub.loc[:,'station_id']=cta_sub['station_id'].astype(str)
 
     # Get CTA Station Mapping file to avoid another spatial join
     c_map = client.get('zbnc-zirh')
@@ -112,8 +112,8 @@ def get_ecofeatures(ump_filepath,gdp_filepath):
     # ump_filepath = 'data/raw/Chicago_unemp_2001-2018.xlsx' 
 
     # Load & subset Sqaure foot price data at Neighborhood
-    ump = pd.read_excel(ump_filepath, sheetname='Data')
-    gdp = pd.read_excel(gdp_filepath, sheetname='Data')
+    ump = pd.read_excel(ump_filepath, sheet_name='Data')
+    gdp = pd.read_excel(gdp_filepath, sheet_name='Data')
 
     return ump, gdp
 
