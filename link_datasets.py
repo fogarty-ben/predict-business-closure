@@ -79,56 +79,66 @@ def link_cta_licenses(cta, licenses, months, ward=True):
     if ward:
         cta_geo = 'Wards'
         license_geo = 'ward'
+        suffix = 'ward'
     else:
         cta_geo = 'Zip Codes'
         license_geo = 'zip_code'
-    if ward:
-        cta = cta.groupby(cta_geo)\
-                                 [['month_year', 'monthtotal', 'avg_weekday_rides']]\
-                                 .rolling(window=months, on='month_year')\
-                                 .mean()\
-                                 .droplevel(1)\
-                                 .reset_index()\
-                                 .rename({'monthtotal': 'monthavg_last{}'.format(months),
-                                          'avg_weekday_rides': 'avg_weekday_rides_last{}'.format(months)},
-                                         axis=1)
-        cta['merge_col'] = cta[cta_geo].astype(str) + '_' + cta.month_year.astype(str)
+        suffix = 'zip_code'
 
-        licenses['merge_col'] = (licenses[license_geo].astype(str) + '_' +
-                                 licenses.exp_month_year.astype(str))
+    cta = cta.groupby(cta_geo)\
+             [['month_year', 'monthtotal', 'avg_weekday_rides']]\
+             .rolling(window=months, on='month_year')\
+             .mean()\
+             .droplevel(1)\
+             .reset_index()\
+             .rename({'monthtotal': 'monthavg_last{}'.format(months),
+                      'avg_weekday_rides': 'avg_weekday_rides_last{}'.format(months)},
+                     axis=1)
+    cta['merge_col'] = cta[cta_geo].astype(str) + '_' + cta.month_year.astype(str)
 
-    return pd.merge(licenses, cta, how='left', on='merge_col')\
+    licenses['merge_col'] = (licenses[license_geo].astype(str) + '_' +
+                             licenses.exp_month_year.astype(str))
+
+    return pd.merge(licenses, cta, how='left', on='merge_col',
+                    suffixes=('', suffix))\
              .drop(['exp_month_year', 'merge_col', cta_geo], axis=1)
 
-def link_real_estate_licenses(real_estate, licenses, geography, time):
+def link_real_estate_licenses(real_estate, licenses, months, neighborhood=True):
     '''
-    Links 'El' station ridership with business license data based on a given
-    time length and geographic spedificity
+    Links median home price per square foot in a given neighborhood from Zillow
+    with business license data.
 
     Inputs:
-    cta (pandas dataframe): a set of real_estate price data
+    realestate (pandas dataframe): a set of real estate price data
     licenses (pandas dataframe): a set of business licenses data
-    geography (str): can be 'ward' or 'neighborhood', specificies the geographic
-        specificity with which licenses and real estate data should be length
-    time (dateutil.relativetimedelta): specifies the temporal horzion with which
-        licenses and real estate data should be linked
+    months (int): number of months to aggregate cta ridership data over
+    ward (bool): if true, cta data is assumed to be ward level; if false, cta
+        data is assumed to be zipcode level
 
     Returns: pandas dataframe
     '''
-    #find earliest date in licenses
+    licenses['exp_month_year'] = licenses['max_expiration_date'].dt.to_period('M')
+    if neighborhood:
+        price = 'MedianValuePerSqfeet_Nbh'
+        license_geo = 'ward'
+    else:
+        price = 'MedianValuePerSqfeet_Zip' 
+        license_geo = 'zip_code'
 
-    #aggregate reale state for specified period before earliest data in licens
+    real_estate = real_estate.groupby('RegionName')\
+                             [['Month', price]]\
+                             .rolling(window=months, on='Month')\
+                             .mean()\
+                             .droplevel(1)\
+                             .reset_index()
 
-    #drop data outside specified period from real_estate df
+    real_estate['merge_col'] = real_estate['RegionName'].astype(str) + '_' + real_estate.Month.astype(str)
 
-    if geography == 'ward':
-        pass
-        #merge on ward
-    elif geograph == 'neighborhood':
-        pass
-        #merge on zipcode
+    licenses['merge_col'] = (licenses[license_geo].astype(str) + '_' +
+                             licenses.exp_month_year.astype(str))
 
-    #return merged df
+    return pd.merge(licenses, real_estate, how='left', on='merge_col')\
+             .drop(['exp_month_year', 'merge_col', 'RegionName'], axis=1)
 
 def link_gdp_licenses(gdp, licenses):
     '''
