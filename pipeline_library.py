@@ -863,15 +863,6 @@ def create_temporal_splits(data, time_period_col, bucket_size, time_buckets):
 
     return training_splits, testing_splits
 
-
-def binary_labels(binary_series):
-    '''
-    Create T/F for binary variables
-    '''
-    bvar = ['T' if x == 1 else 'F' for x in binary_series]
-
-    return bvar
-
 def create_interactions(df, cols_to_interact):
     '''
     Create feature interactions

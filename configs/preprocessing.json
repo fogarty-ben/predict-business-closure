@@ -1,5 +1,7 @@
-{"methods": {"secondary_focus_area": "manual",
-             "secondary_focus_subject": "manual"},
- "manual_vals": {"secondary_focus_area": "N/A",
-                 "secondary_focus_subject": "N/A"}
+{"methods": {"avg_weekday_rides_last6": "manual",
+             "monthavg_last6": "manual",
+             "ssa": "manual"},
+ "manual_vals": {"avg_weekday_rides_last6": 0,
+                 "monthavg_last6": 0,
+                 "ssa": -1}
 }

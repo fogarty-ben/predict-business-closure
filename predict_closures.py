@@ -93,7 +93,8 @@ def preprocess_data(df, methods=None, manual_vals=None):
     return df
 
 def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
-                      dummy_cols, binary_cut_cols, drop_cols):
+                      dummy_cols, iter_dummy_cols, binary_cut_cols, tf_cols, 
+                      duration_cols, interaction_cols, drop_cols):
     '''
     Generates categorical, binary, and scaled features. While features are
     generate for the training data independent of the testing data, features
@@ -105,7 +106,10 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     - Scale columns (new column with name of original column + '_scale')
     - Bin columns (replaces original column)
     - Create dummy columns (new column with name of original + '_tf')
+    - Create dummy columns for iterables (???)
     - Binary cut columns (replaces original column)
+    - Duration columns (new column with original name + '_duration')
+    - Create interaction columns ()
     - Drop columns (eliminates original column)
 
     As such, number of occurence columns may be scaled, binned, etc, by
@@ -124,6 +128,11 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         pipeline_library (must contain a value for bin (a binning rule),
         labels and kwargs parameters are optional)
     dummy_cols (list of strs): names of columns to convert to dummy variables
+    iter_dummy_cols (list of col names): name of columns where each value is an
+        iterable to be converted to a set of dummy columns
+    duration_cols (): names of columns to turn into a duration from some date
+    interaction_cols (list of n-ples of col names): tuples of columns to interact
+        with one another
     binary_cut_cols (dict of dicts): each key is the name of a column to cut
         into two groups based on some threshold and each value is a dictionry
         of arguments to pass to the cut_binary function in pipeline_library
@@ -165,9 +174,18 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         training = pl.create_dummies(training, col, values=values)
         testing = pl.create_dummies(testing, col, values=values)
 
+    for col in iter_dummy_cols:
+        ###
+
+    for col in duration_cols:
+        ###
+
     for col, specs in binary_cut_cols.items():
         training[col + '_tf'] = pl.cut_binary(training[col], **specs)
         testing[co + '_tf'] = pl.cut_binary(testing[col], **specs)
+
+    for col in interaction_cols:
+        ###
 
     training = training.drop(drop_cols, axis=1)
     testing = testing.drop(drop_cols, axis=1)
