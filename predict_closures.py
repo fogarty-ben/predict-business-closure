@@ -34,7 +34,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     '''
     ## Optional overide if dataset is specified?
     if dataset is None:
-        df = license_clean.get_lcs_data()
+        df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?
     else:
         col_types = {} #need to add
         df = pl.read_csv(dataset, col_types=col_types, index_col='projectid')
