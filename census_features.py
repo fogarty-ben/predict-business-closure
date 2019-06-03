@@ -75,6 +75,10 @@ def get_zbp_data():
         zbp_oneyr['year'] = year
         zbp_data = zbp_data.append(zbp_oneyr, ignore_index=True)
 
+    zbp_data = zbp_data.astype({'Paid employees for pay period ending March 12': float,
+                                'Number of establishments': float,
+                                'Annual payroll': float})
+
     return zbp_data
 
 def process_2000_education(row):

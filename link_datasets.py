@@ -22,6 +22,7 @@ def link_zbp_licenses(zbp, licenses):
              .reset_index()
     
     zbp['merge_col'] = zbp.time_period.astype(str) + '-' + zbp.zipcode.astype(str)
+    zbp = zbp.drop('time_period', axis=1)
     licenses['merge_col'] = licenses.time_period.astype(str) + '-' + licenses.zip_code.astype(str)
 
     return pd.merge(licenses, zbp, how='left', on='merge_col').drop(['merge_col', 'zipcode'],
@@ -131,7 +132,7 @@ def link_real_estate_licenses(real_estate, licenses, months):
                              licenses.exp_month_year.astype(str))
 
     return pd.merge(licenses, real_estate, how='left', on='merge_col')\
-             .drop(['exp_month_year', 'merge_col', 'RegionName'], axis=1)
+             .drop(['exp_month_year', 'merge_col', 'RegionName', 'Month'], axis=1)
 
 def link_gdp_licenses(gdp, licenses):
     '''

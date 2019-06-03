@@ -57,6 +57,9 @@ def get_lcs_data():
     print('Linking census tracts...')
     lcs = add_census_tracts(lcs)
 
+    # getting additional datasets
+    print('Loading additional datasets...')
+
     return lcs
 
 def obtain_lcs():
