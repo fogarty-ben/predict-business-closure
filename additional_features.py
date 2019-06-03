@@ -8,34 +8,31 @@ from sodapy import Socrata
 import matplotlib.pyplot as plt
 from IPython.display import display
 
-
 # Annexure I: CTA rides data [from API]
-def get_rides(tokens):
+def get_rides(token):
     '''
     Preparing cta rides at ZIP and Ward level
     Input: token for chicago data portal
     Output: CTA monhtly and average weekly rides by Month Year for Zip and Ward level
-
     Sample Code Run: 
     token = xfs.load_tokens('tokens.json')
     rides_zip, rides_ward= xfs.get_rides(token)
     '''
-    client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
+    client = Socrata('data.cityofchicago.org', token['chicago_open_data_portal'])
 
     # Get CTA data
     c_rides = client.get('t2rn-p8d7', limit=50000)
-    cta=pd.DataFrame.from_dict(c_rides)
+    cta = pd.DataFrame.from_dict(c_rides)
 
     # Process & Subset relevant columns CTA
-    cta['month_beginning'] = pd.to_datetime(cta['month_beginning'])
-    cta['month_year'] = cta['month_beginning'].dt.to_period('M')
-    cta_sub = cta[['station_id','month_year','avg_weekday_rides','monthtotal']]
+    cta.loc[:, 'month_beginning'] = pd.to_datetime(cta['month_beginning'])
+    cta.loc[:, 'month_year'] = cta['month_beginning'].dt.to_period('M')
+    cta_sub = cta.loc[:, ['station_id','month_year','avg_weekday_rides','monthtotal']]
     cta_sub.loc[:,'station_id']=cta_sub['station_id'].astype(str)
 
     # Get CTA Station Mapping file to avoid another spatial join
     c_map = client.get('zbnc-zirh')
-    cta_map=pd.DataFrame.from_records(c_map)
-    print(cta_map)
+    cta_map=pd.DataFrame.from_dict(c_map)
 
     # Rename geo_id columns using dictionary (as specified in mapping file) from on CTA station geocodes 
     # the said variable names are defined in the source
@@ -47,24 +44,22 @@ def get_rides(tokens):
              ':@computed_region_43wa_7qmu':'Wards'}
     cta_map=cta_map.rename(columns = dic_map)
     # Flatten records at by Zip Ward and Station Mapping ID
-    cta_map=cta_map.groupby(['map_id','Zip Codes','Wards'], as_index=False).size().reset_index(name='freq')
+    cta_map=cta_map.groupby(['map_id','Wards'], as_index=False).size().reset_index(name='freq')
     cta_map=cta_map.drop('freq',axis=1)
-    cta_map['map_id']=cta_map['map_id'].astype(str)
+    cta_map.loc[:, 'map_id']=cta_map['map_id'].astype(str)
 
     # Get Ward and ZIP codes to rides data using mapping file
     ct = cta_sub.merge(cta_map, left_on='station_id', right_on='map_id', how='inner')
 
     # Consistent data types
-    ct['Zip Codes']=ct['Zip Codes'].astype(str)
-    ct['Wards']=ct['Wards'].astype(str)
-    ct['monthtotal']=ct['monthtotal'].astype('float')
-    ct['avg_weekday_rides']=ct['avg_weekday_rides'].astype('float')
+    ct.loc[:, 'Wards']=ct['Wards'].astype(str)
+    ct.loc[:, 'monthtotal']=ct['monthtotal'].astype('float')
+    ct.loc[:, 'avg_weekday_rides']=ct['avg_weekday_rides'].astype('float')
 
     # Aggregate by Zip and Ward
-    cta_zip=ct.groupby(['month_year','Zip Codes'],as_index=False).agg({"monthtotal": 'sum', 'avg_weekday_rides':'sum'})
     cta_ward=ct.groupby(['month_year','Wards'],as_index=False).agg({"monthtotal": 'sum', 'avg_weekday_rides':'sum'})
 
-    return cta_zip, cta_ward
+    return cta_ward
 
 
 # Annexure II: Zillow Real Estate square feet price data [from downloaded file]
