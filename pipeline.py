@@ -23,8 +23,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
-import data_explore as explore
-import data_preprocess as preprocess
 from model import *
 
 
@@ -373,69 +371,48 @@ class Pipeline:
         else:
             self.paramgrid = self.TEST_GRID
 
-    def temporal_split(self, time_col, train_start, train_end, test_start, test_end, predictor_cols):
+    def temporal_split(self, time_period_col, predictor_cols, label,
+                       train_period, test_period):
         '''
         do one train-test-split according to start/end time
         
         Inputs:
-            time_col: (str) time column to split on
-            train_start, train_end, test_start, test_end: (datetime) time bound for training and test set
+            time_period_col: (str) time period column in the pipeline dataframe
             predictor_cols: (list) predictor column names
 
         Returns: tuple of X_train, y_train, X_test, y_test
         '''
         # train test split
-        train_df = self.df[(self.df[time_col] >= train_start) & (self.df[time_col] <= train_end)]
-        test_df = self.df[(self.df[time_col] >= test_start) & (self.df[time_col] <= test_end)]
+        train_df = self.df[self.df[time_period_col].isin(train_period)]
+        test_df = self.df[self.df[time_period_col] == test_period]
 
-        # select features cols only
+        # split X and y
         X_train = train_df[predictor_cols]
+        y_train = train_df[label]
         X_test = test_df[predictor_cols]
-
-        # generate outcome
-
+        y_train = train_df[label]
         return X_train, y_train, X_test, y_train
 
-    def get_train_test_times(self, start, end, test_window_years, outcome_lag_years):
+    def get_train_test_times(self, time_period_col):
         '''
-        Inputs:
-            start: (datetime) start time of all data
-            end: (datetime) end time of all data
-            test_window_years: (int/float) time length of a test set in years
-            outcome_lag_years: (int/foat) lag needed to get the outcome in years
+        Get list of time period splits for temporal crossvalidation
 
-        Updates self.train_test_times
+        Updates self.train_test_times to [(train_period, test_period), ...]
+        where train_period is a list of periods and test_period is a float 
+        indicating a single test period
         '''
         results = []
+        periods = list(self.df.groupby(time_period_col).groups)
+        start = periods[0]
+        end = periods[-1]
 
-        # initial train/test time cutoffs
-        train_start = start
-        train_end = train_start + \
-                    relativedelta(years=+test_window_years) - \
-                    relativedelta(days=+1)
-        test_start = train_end + \
-        			relativedelta(years=+outcome_lag_years) + \
-        			relativedelta(days=+1)
-        test_end =  test_start + \
-                    relativedelta(years=+test_window_years) - \
-                    relativedelta(days=+1)
+        train_period = [start]
+        test_period = start + 2
+        while test_period + 2 <= end:
+            results.append([list(train_period), test_period])
+            test_period += 1
+            train_period.append(train_period[-1]+1)
 
-        while test_end <= end - relativedelta(years=+outcome_lag_years):
-                # save times
-                results.append((train_start, train_end, test_start, test_end))
-
-                # increment time (train_start stays the same)
-                test_start = test_end + relativedelta(days=+1)
-                test_end = test_start + \
-                            relativedelta(years=+test_window_years) - \
-                            relativedelta(days=+1)
-                train_end = test_start - \
-                			relativedelta(years=+outcome_lag_years) - \
-                			relativedelta(days=+1)
-               
-        # # adjust test_end for the last test set:
-        # test_end = end - relativedelta(years=+outcome_lag_years)
-        # results.append((train_start, train_end, test_start, test_end))
         self.train_test_times = results
 
 
