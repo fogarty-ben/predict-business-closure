@@ -34,14 +34,14 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     '''
     ## Optional overide if dataset is specified?
     if dataset is None:
-        df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
+        df, buckets = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
         col_types = {} #need to add
         df = pl.read_csv(dataset, col_types=col_types, index_col='projectid')
         df = transform_data(df)
 
-    training_splits, testing_splits = pl.create_temporal_splits(df,
-                                      'date_posted', {'months': 6}, gap={'days': 60})
+    training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period',
+                                                                bucket_size=2, time_buckets=buckets)
 
     for i in range(len(training_splits)):
         training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
