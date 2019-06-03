@@ -146,7 +146,7 @@ def link_real_estate_licenses(real_estate, licenses, geography, time):
 
 def link_gdp_licenses(gdp, licenses):
     '''
-    Links GDP data with business license data.
+    Links Chicago GDP data with business license data.
     
     Inputs:
     gdp (pandas dataframe): a set of gdp data
@@ -162,3 +162,22 @@ def link_gdp_licenses(gdp, licenses):
              .rename({'GDP_billion_dollars': 'gdpavg_timepd (billions)'}, axis=1)
 
     return pd.merge(licenses, gdp, how='left', on='time_period')
+
+def link_ump_licenses(ump, licenses):
+    '''
+    Links Chicago unemployment rate data with business license data.
+    
+    Inputs:
+    ump (pandas dataframe): a set of gdp data
+    licenses (pandas dataframe): a set of business licenses data
+    '''
+    #GDP DATA PROBABLY NEEDS TO BE GDP GROWTH DATA
+    ump['year_as_date'] = pd.to_datetime(ump.Year.astype(str), format='%Y')
+    ump = license_clean.create_time_buckets(ump, {'years': 2}, 'year_as_date',
+                                            '2002-01-01')
+    ump = ump.drop(['year_as_date', 'Year'], axis=1)
+    ump = ump.groupby(['time_period'])\
+             .agg('mean')\
+             .rename({'Annual': 'umpavg_timepd'}, axis=1)
+
+    return pd.merge(licenses, ump, how='left', on='time_period')
