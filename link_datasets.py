@@ -100,20 +100,6 @@ def link_cta_licenses(cta, licenses, months, ward=True):
     return pd.merge(licenses, cta, how='left', on='merge_col')\
              .drop(['exp_month_year', 'merge_col', cta_geo], axis=1)
 
-'''
-    #aggregate cta ridership for specified period before earliest data in licens
-
-    #drop data outside specified period from cta ridership df
-
-    if geography == 'ward':
-        pass
-        #merge on ward
-    elif geograph == 'zipcode':
-        pass
-        #merge on zipcode
-
-    #return merged df
-'''
 def link_real_estate_licenses(real_estate, licenses, geography, time):
     '''
     Links 'El' station ridership with business license data based on a given
