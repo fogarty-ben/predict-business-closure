@@ -34,7 +34,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     '''
     ## Optional overide if dataset is specified?
     if dataset is None:
-        df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?
+        df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
         col_types = {} #need to add
         df = pl.read_csv(dataset, col_types=col_types, index_col='projectid')
@@ -102,9 +102,9 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     Operations will occurr in the following order:
     - Create number of occurences columns, name of each column will be the name
       of the original column plus the suffix '_n_ocurr' (new column created)
-    - Scale columns (replaces original column)
+    - Scale columns (new column with name of original column + '_scale')
     - Bin columns (replaces original column)
-    - Create dummy columns (replaces original column)
+    - Create dummy columns (new column with name of original + '_tf')
     - Binary cut columns (replaces original column)
     - Drop columns (eliminates original column)
 
@@ -147,8 +147,8 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     for col in scale_cols:
         max_training = max(training[col])
         min_training = min(training[col])
-        training.loc[:, col] = pl.scale_variable_minmax(training[col])
-        testing.loc[:, col] = pl.scale_variable_minmax(testing[col], a=max_training,
+        training.loc[:, col + '_scale'] = pl.scale_variable_minmax(training[col])
+        testing.loc[:, col + '_scale'] = pl.scale_variable_minmax(testing[col], a=max_training,
                                                        b=min_training)
 
     for col, specs in bin_cols.items():
@@ -166,8 +166,8 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         testing = pl.create_dummies(testing, col, values=values)
 
     for col, specs in binary_cut_cols.items():
-        training[col] = pl.cut_binary(training[col], **specs)
-        testing[col] = pl.cut_binary(testing[col], **specs)
+        training[col + '_tf'] = pl.cut_binary(training[col], **specs)
+        testing[co + '_tf'] = pl.cut_binary(testing[col], **specs)
 
     training = training.drop(drop_cols, axis=1)
     testing = testing.drop(drop_cols, axis=1)
