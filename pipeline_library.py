@@ -840,34 +840,29 @@ def create_temporal_splits(data, time_period_col, bucket_size, time_buckets):
     Returns: tuple of list of pandas dataframes, the first of which contains
         test sets and the second of which contains training sets
     '''
-<<<<<<< HEAD
-    time_length = relativedelta.relativedelta(**time_length)
+    times_to_split = []
+    training_splits = []
+    testing_splits = []
+    
+    # get start and ending time periods
+    start = time_buckets[0]
+    end = time_buckets[-2]
 
-    if gap:
-        gap = relativedelta.relativedelta(**gap)
-    else:
-        gap = relativedelta.relativedelta()
-    if start_date:
-        start_date = pd.to_datetime(start_date, format='yyyy-mm-dd')
-        df = df[df[date_col] > start_date]
-    else:
-        start_date = min(df[date_col]) + time_length
+    # get temporal split cutoff times
+    train_period = [0]
+    test_period = 0 + bucket_size
+    while test_period + bucket_size <= end:
+        times_to_split.append([list(train_period), test_period])
+        test_period += 1
+        train_period.append(train_period[-1]+1)
 
-    test_splits = []
-    train_splits = []
-    max_date = max(df[date_col])
-    i = 0
-    while start_date + (i * time_length) < max_date:
-        test_start = start_date + (i * time_length)
-        test_end = (start_date + ((i + 1) * time_length))
-        lo_test_mask = test_start <= df[date_col]
-        up_test_mask = df[date_col] < test_end
-        train_mask = df[date_col] < (test_start - gap)
-        test_splits.append(df[lo_test_mask & up_test_mask])
-        train_splits.append(df[train_mask])
-        i += 1
+    # split data
+    for train_period, test_period in times_to_split:
+        training_splits.append(data[data[time_period_col].isin(train_period)])
+        testing_splits.append(data[data[time_period_col] == test_period])
 
-    return train_splits, test_splits
+    return training_splits, testing_splits
+
 
 def binary_labels(binary_series):
     '''
@@ -914,29 +909,3 @@ def set_dummy(df, dummy_var, d_var):
     df['duration_indays'] = (df[date]-ref_date).dt.days
 
     return df
-
-
-=======
-    times_to_split = []
-    training_splits = []
-    testing_splits = []
-    
-    # get start and ending time periods
-    start = time_buckets[0]
-    end = time_buckets[-2]
-
-    # get temporal split cutoff times
-    train_period = [0]
-    test_period = 0 + bucket_size
-    while test_period + bucket_size <= end:
-        times_to_split.append([list(train_period), test_period])
-        test_period += 1
-        train_period.append(train_period[-1]+1)
-
-    # split data
-    for train_period, test_period in times_to_split:
-        training_splits.append(data[data[time_period_col].isin(train_period)])
-        testing_splits.append(data[data[time_period_col] == test_period])
-
-    return training_splits, testing_splits
->>>>>>> d37deddaaa4ec49e0e86fcd8d9e5b7b127876d07
