@@ -103,30 +103,23 @@ def link_cta_licenses(cta, licenses, months, ward=True):
                     suffixes=('', suffix))\
              .drop(['exp_month_year', 'merge_col', cta_geo], axis=1)
 
-def link_real_estate_licenses(real_estate, licenses, months, neighborhood=True):
+def link_real_estate_licenses(real_estate, licenses, months):
     '''
-    Links median home price per square foot in a given neighborhood from Zillow
+    Links median home price per square foot in a given zipcode from Zillow
     with business license data.
 
     Inputs:
     realestate (pandas dataframe): a set of real estate price data
     licenses (pandas dataframe): a set of business licenses data
     months (int): number of months to aggregate cta ridership data over
-    ward (bool): if true, cta data is assumed to be ward level; if false, cta
-        data is assumed to be zipcode level
+
 
     Returns: pandas dataframe
     '''
     licenses['exp_month_year'] = licenses['max_expiration_date'].dt.to_period('M')
-    if neighborhood:
-        price = 'MedianValuePerSqfeet_Nbh'
-        license_geo = 'ward'
-    else:
-        price = 'MedianValuePerSqfeet_Zip' 
-        license_geo = 'zip_code'
 
     real_estate = real_estate.groupby('RegionName')\
-                             [['Month', price]]\
+                             [['Month', 'MedianValuePerSqfeet_Zip']]\
                              .rolling(window=months, on='Month')\
                              .mean()\
                              .droplevel(1)\
@@ -134,7 +127,7 @@ def link_real_estate_licenses(real_estate, licenses, months, neighborhood=True):
 
     real_estate['merge_col'] = real_estate['RegionName'].astype(str) + '_' + real_estate.Month.astype(str)
 
-    licenses['merge_col'] = (licenses[license_geo].astype(str) + '_' +
+    licenses['merge_col'] = (licenses['zip_code'].astype(str) + '_' +
                              licenses.exp_month_year.astype(str))
 
     return pd.merge(licenses, real_estate, how='left', on='merge_col')\
