@@ -145,80 +145,85 @@ class Pipeline:
 
     #### modeling functions ####
 
-    def run(self, df, time_col, predictor_sets, label, start, end, test_window_years, 
-            outcome_lag_years, output_dir, output_filename, grid_size='test', thresholds=[], 
-            ks=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], save_output=True, debug=False):
-        '''
-        Run the pipeline using temporal cross validation: split data, preprocess data, 
-        build models, and evaluate models.
+    def run(self, df, time_period_col, predictor_sets, label, output_dir, output_filename,
+            grid_size, num_feature_config, 
+            ks=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]):
+    # def run(self, df, time_col, predictor_sets, label, start, end, test_window_years, 
+    #         outcome_lag_years, output_dir, output_filename, grid_size='test', thresholds=[], 
+    # #         ks=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], save_output=True, debug=False):
+    #     '''
+    #     Run the pipeline using temporal cross validation: split data, preprocess data, 
+    #     build models, and evaluate models.
         
-        Evaluation results are saved as csv files and stored in self.models.
-        Plots are saved as png files.
+    #     Evaluation results are saved as csv files and stored in self.models.
+    #     Plots are saved as png files.
 
-        Inputs:
-            df: (pd dataframe) 
-                clean dataset
-            time_col: (str) 
-                column name for the time variable to do train/test split on
-            predictor_sets: (list of lists) 
-                list of features sets
-                            e.g. predictor_sets = [census_features, business_features, cta_features]
-                            census_features = [age, median_income]
-                            business_features = [time_in_business, license_code]
-                            cta_features = [monthly_ridership, num_stops_nearby]
-            label: (str)
-                outcome variable
-            start, end: (datetime objects)
-                start and end of the entire timeframe before splitting
-            test_window_years: (int)
-                test set size in years
-            outcome_lag_years: (int)
-                size of outcome lag after training and test sets in years 
-            output_dir:(str) 
-                directory for output
-            output_filename: (str) 
-                filename for evaluation file.
-            grid_size: (str) 
-                parametergrid size. 'large', 'small' or 'test'
-            ks: (optional list, default = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-                list of floats between 0-1. Floats are for labeling top k (%) highest scores as 1 
-            thresholds (optional list, default=[]): 
-                list of floats between 0-1. Floats are for probablity score thresholds above which
-                predicions are labeled as 1. thresholds will be overriden by ks if both parameters
-                have values
-            save_output: (optional bool, default=True) 
-                whether to save evaluation output.
-            debug: (optional bool, default=False) 
-                whether to print debug statements
+    #     Inputs:
+    #         df: (pd dataframe) 
+    #             clean dataset
+    #         time_col: (str) 
+    #             column name for the time variable to do train/test split on
+    #         predictor_sets: (list of lists) 
+    #             list of features sets
+    #                         e.g. predictor_sets = [census_features, business_features, cta_features]
+    #                         census_features = [age, median_income]
+    #                         business_features = [time_in_business, license_code]
+    #                         cta_features = [monthly_ridership, num_stops_nearby]
+    #         label: (str)
+    #             outcome variable
+    #         start, end: (datetime objects)
+    #             start and end of the entire timeframe before splitting
+    #         test_window_years: (int)
+    #             test set size in years
+    #         outcome_lag_years: (int)
+    #             size of outcome lag after training and test sets in years 
+    #         output_dir:(str) 
+    #             directory for output
+    #         output_filename: (str) 
+    #             filename for evaluation file.
+    #         grid_size: (str) 
+    #             parametergrid size. 'large', 'small' or 'test'
+    #         ks: (optional list, default = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    #             list of floats between 0-1. Floats are for labeling top k (%) highest scores as 1 
+    #         thresholds (optional list, default=[]): 
+    #             list of floats between 0-1. Floats are for probablity score thresholds above which
+    #             predicions are labeled as 1. thresholds will be overriden by ks if both parameters
+    #             have values
+    #         save_output: (optional bool, default=True) 
+    #             whether to save evaluation output.
+    #         debug: (optional bool, default=False) 
+    #             whether to print debug statements
 
-        Outputs: (saved in output_dir)
-            1. csv file containing evaluation results for each model:
-                COLUMNS: model_id (N_split-i), N_split, i, label, model_type, roc_auc, k,
-                precision, recall, accuracy, params, predictors
+    #     Outputs: (saved in output_dir)
+    #         1. csv file containing evaluation results for each model:
+    #             COLUMNS: model_id (N_split-i), N_split, i, label, model_type, roc_auc, k,
+    #             precision, recall, accuracy, params, predictors
 
-            2. png files of precision-recall plots for each model
+    #         2. png files of precision-recall plots for each model
 
-            3. png files of roc plots for each model
+    #         3. png files of roc plots for each model
 
-        '''
-        if debug:
-            print('START')
-            print('GRID SIZE = {}'.format(grid_size))
-
+    #     '''
+        
+        print('=== PIPELINE STARTS (Grid: {}) ===\n'.format(grid_size))
+            
+        print('Setting up pipeline...')
         # load data
         self.load_clean_data(df)
+
         # set outcome
         self.label = label
-        # set predictors
+
+        # generate predictor combinations
         self.add_predictor_sets(predictor_sets, reset=True)
+
         # set parametergrid for classifiers
         self.grid_size = grid_size
         self.set_paramgrid(grid_size)
-        # get cutoff times for train test split
-        self.get_train_test_times(start, end, test_window_years, outcome_lag_years)
-        # initialize run number and results
-        N = 0
-        model_results = {}
+
+        # get train test splits
+        self.get_train_test_times(time_period_col)
+
         # initialize output file
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
@@ -227,74 +232,54 @@ class Pipeline:
                 'precision', 'recall', 'accuracy', 'params', 'predictors']
         pd.DataFrame(columns=headers).to_csv(output_path, index=False)
 
-        if debug:
-            print("set up done. output: {}".format(output_path))
 
-        # 1) loop over temporal sets
-        for train_start, train_end, test_start, test_end in self.train_test_times:
-            model_results[N] = {}
+        print('Building models...')
+        # loop over temporal sets    
+        N = 0
+        for train_period, test_period in self.train_test_times:
+
+            print('> {}. Train: {}, Test {}'.format(N, train_period, test_period))
+
+            self.models[N] = {}
             i = 0
 
-            if debug:
-                print('## TRAIN: {} - {}, TEST:{} - {} ##'.format(str(train_start), str(train_end),
-                                                    str(test_start), str(test_end)))
-
-            # 2) loop over predictor combos
+            # loop over predictor combos
             for predictor_cols in self.predictor_combos:
 
-                if debug:
-                    print('### Predictors: {}'.format(predictor_cols))
+                print('>>> Predictors: {}'.format(predictor_cols))
+                print('\tSplitting data...')
 
                 # train test split
                 X_train, y_train, X_test, y_test = self.temporal_split(
-                                                    time_col, train_start, train_end, 
-                                                    test_start, test_end, predictor_cols)
-                if debug:
-                    print('...train test split done')
+                                                    time_period_col, predictor_cols, 
+                                                    label, train_period, test_period)
 
+                ### TODO
+                print('\tPreprocessing training and testing sets...')
                 # pre-process training and test sets
-                preprocess.preprocess(X_train, y_train)
-                preprocess.preprocess(X_test, y_test)
 
-                if debug:
-                    print('...pre-processing done')
+                print('\tGenerating features...')
+                # generate features
 
-                # generate features (convert to dummies)
-                train_to_concat = [X_train]
-                test_to_concat = [X_test]
-                for p in predictor_cols:
-                    dummies_train, dummies_test = self.generate_feature(p, X_train, X_test)
-                    train_to_concat.append(dummies_train)
-                    test_to_concat.append(dummies_test)
-                X_train = pd.concat(train_to_concat, axis=1)
-                X_test = pd.concat(test_to_concat, axis=1)
-                X_train.drop(columns=predictor_cols, inplace=True)
-                X_test.drop(columns=predictor_cols, inplace=True)
 
-                if debug:
-                    print('...feature generation done')
-
-                # 3) loop over classifier types
+                # loop over classifier types
                 for model_type, clf in self.clfs.items():
                     if debug:
                         print('#### {}-{}: {}'.format(N, i, model_type))
-                    # 4) loop over parameter combinations
+                    # loop over parameter combinations
                     for params in ParameterGrid(self.paramgrid[model_type]):
                         if debug:
                             print('{}'.format(params))
                         m = self.build_model(clf, X_train, y_train, X_test, y_test, params, N, i, 
                             model_type, predictor_cols, label, output_dir, output_filename, thresholds, 
                             ks, save_output)
-                        model_results[N][i] = m
+                        self.models[N][i] = m
 
                         if debug:
                             print('---model results saved---')
 
                         i += 1
             N += 1
-
-        # store model results
-        self.models = model_results
 
         if debug:
             print('FINISH')
@@ -318,36 +303,53 @@ class Pipeline:
         m.plot_precision_recall_curve(save_output)
         return m
 
-    def generate_feature(self, p, X_train, X_test):
+    def generate_features(self):
+        # generate features (convert to dummies)
+        train_to_concat = [X_train]
+        test_to_concat = [X_test]
+        for p in predictor_cols:
+            dummies_train, dummies_test = self.get_train_test_dummies(p, X_train, X_test)
+            train_to_concat.append(dummies_train)
+            test_to_concat.append(dummies_test)
+        X_train = pd.concat(train_to_concat, axis=1)
+        X_test = pd.concat(test_to_concat, axis=1)
+        X_train.drop(columns=predictor_cols, inplace=True)
+        X_test.drop(columns=predictor_cols, inplace=True)
+
+
+    def get_train_test_dummies(self, feature, X_train, X_test, num_feature_config):
         '''
         p: (str) predictor column name
         X_train, X_test: (dataframe) training and test sets
+        num_feature_config: (dict) {<feature name>: (<bins>, <labels>)}
         '''
-        ### get dummies
-        # discretize numerical predictors
-        if p in preprocess.predictors_to_discretize():
-            bins, labels = preprocess.predictors_to_discretize()[p]
-            X_train[p] = discretize(X_train, p, bins, labels)
-            X_test[p] = discretize(X_test, p, bins, labels)
-            # convert to dummies, don't need to add "other" column
-            dummies_train = convert_to_dummy(X_train, p, add_other=False)
-            dummies_test = convert_to_dummy(X_test, p, add_other=False)
 
-        # convert categorical predictors to dummies
+        if feature in num_feature_config:
+            # discretize numerical features
+            bins, labels = num_feature_config[feature]
+            X_train[feature] = discretize(X_train, feature, bins, labels)
+            X_test[feature] = discretize(X_test, feature, bins, labels)
+
+            # convert numerical features to dummies (no need to add "other" column)
+            dummies_train = convert_to_dummy(X_train, feature, add_other=False)
+            dummies_test = convert_to_dummy(X_test, feature, add_other=False)
+
+        # convert categorical features to dummies
         else: 
-            dummies_train = convert_to_dummy(X_train, p, add_other=True)
-            dummies_test = convert_to_dummy(X_test, p, add_other=False)
+            dummies_train = convert_to_dummy(X_train, feature, add_other=True) 
+            dummies_test = convert_to_dummy(X_test, feature, add_other=True)
 
-        ### adjust dummies
-        # group test-only dummy columns into "other"
-        values_not_seen_in_train = dummies_test.columns.difference(dummies_train.columns)
-        if len(values_not_seen_in_train) != 0:
-            dummies_test['{}_other'.format(p)] = dummies_test[values_not_seen_in_train].sum(axis=1)
-        dummies_test.drop(columns=values_not_seen_in_train, inplace=True)
+        # adjust dummies
+        # group test-only dummy columns into "<feature>_other" column
+        test_only_cols = dummies_test.columns.difference(dummies_train.columns)
+        if len(test_only_cols) != 0:
+            dummies_test['{}_other'.format(feature)] = dummies_test[test_only_cols].sum(axis=1)
+        dummies_test.drop(columns=test_only_cols, inplace=True)
 
         # add train-only dummy columns to test set
-        for c in dummies_train.columns.difference(dummies_test.columns):
-            dummies_test[c] = 0
+        train_only_cols = dummies_train.columns.difference(dummies_test.columns)
+        for col in train_only_cols:
+            dummies_test[col] = 0
 
         return dummies_train, dummies_test
 
