@@ -83,7 +83,7 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = link_gdp_licenses(gdp, lcs)
     lcs = link_ump_licenses(ump, lcs)
 
-    return lcs
+    return lcs, buckets
 
 def obtain_lcs(tokens):
     '''
