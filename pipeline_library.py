@@ -898,14 +898,12 @@ def days_between(date, ref_date):
 
     return duration
 
-def set_dummy(df, dummy_var, d_var):
+def set_dummy(df, var):
     '''
-    Difference in dates
-    Build case /default change type
+    returns a df with dummy variables
     '''
-    duration = 'duration_indays' 
-    # df[date] = pd.to_datetime(df[date])
-    ref_date = pd.to_datetime(ref_date)
-    df['duration_indays'] = (df[date]-ref_date).dt.days
-
-    return df
+    dummies = df[var].str.join(sep='*').str.get_dummies(sep='*')
+    colnames = ['{}_{}'.format(var, col) for col in dummies.columns]
+    dummies.columns = colnames
+    result = pd.concat([df, dummies], axis=1).drop(columns=var)
+    return result
