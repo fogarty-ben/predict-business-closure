@@ -158,7 +158,7 @@ def collapse_licenses(lcs):
                                'business_activity_id': 'business_activity_ids',
                                'rev_or_rea': 'pct_revoked',
                                'canceled': 'pct_canceled',
-                               'conditional_approval': 'pct_cndtl_approval'},
+                               'conditional_tf': 'pct_cndtl_approval'},
                               axis=1)
 
     return lcs_collapse
