@@ -868,3 +868,51 @@ def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None)
         i += 1
 
     return train_splits, test_splits
+
+def binary_labels(binary_series):
+    '''
+    Create T/F for binary variables
+    '''
+    bvar = ['T' if x == 1 else 'F' for x in binary_series]
+
+    return bvar
+
+def create_interactions(df, cols_to_interact):
+    '''
+    Create feature interactions
+    Build case /default change type
+    Specify interaction
+    '''
+    interaction = 'inter_' + ''.join(cols_to_interact)
+    df[interaction] = df[cols_to_interact[0]].astype(int)
+    for col in cols_to_interact[1:]:
+        if isinstance(col, int):
+            df[interaction] = df[interaction] * col
+
+    return df
+
+def days_between(date, ref_date):
+    '''
+    Difference in days with respect to a reference period; here: time buckets
+    Build case /default change type
+    Ensure that they are 
+    '''
+    date = pd.to_datetime(date)
+    ref_date = pd.to_datetime(ref_date)
+    duration = (date-ref_date).dt.days
+
+    return duration
+
+def set_dummy(df, dummy_var, d_var):
+    '''
+    Difference in dates
+    Build case /default change type
+    '''
+    duration = 'duration_indays' 
+    # df[date] = pd.to_datetime(df[date])
+    ref_date = pd.to_datetime(ref_date)
+    df['duration_indays'] = (df[date]-ref_date).dt.days
+
+    return df
+
+
