@@ -76,7 +76,7 @@ def link_cta_licenses(cta, licenses, months):
     '''
     licenses['exp_month_year'] = licenses['max_expiration_date'].dt.to_period('M')
 
-    cta = cta.groupby('Ward')\
+    cta = cta.groupby('Wards')\
              [['month_year', 'monthtotal', 'avg_weekday_rides']]\
              .rolling(window=months, on='month_year')\
              .mean()\
@@ -85,13 +85,13 @@ def link_cta_licenses(cta, licenses, months):
              .rename({'monthtotal': 'monthavg_last{}'.format(months),
                       'avg_weekday_rides': 'avg_weekday_rides_last{}'.format(months)},
                      axis=1)
-    cta['merge_col'] = cta['Ward'].astype(str) + '_' + cta.month_year.astype(str)
+    cta['merge_col'] = cta['Wards'].astype(str) + '_' + cta.month_year.astype(str)
 
     licenses['merge_col'] = (licenses['ward'].astype(str) + '_' +
                              licenses.exp_month_year.astype(str))
 
     return pd.merge(licenses, cta, how='left', on='merge_col')\
-             .drop(['exp_month_year', 'merge_col', 'Ward'], axis=1)
+             .drop(['exp_month_year', 'merge_col', 'Wards'], axis=1)
 
 def link_real_estate_licenses(real_estate, licenses, months):
     '''

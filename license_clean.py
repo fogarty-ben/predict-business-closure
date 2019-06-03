@@ -17,7 +17,7 @@ from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-MAX_REQS = 1000
+MAX_REQS = 1000000000
 TOKENS_FILEPATH = 'tokens.json'
 ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
 UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
