@@ -146,10 +146,10 @@ def link_gdp_licenses(gdp, licenses):
     gdp['year_as_date'] = pd.to_datetime(gdp.Year.astype(str), format='%Y')
     ump = license_clean.create_time_buckets(gdp, {'years': 2}, 'year_as_date',
                                             '2002-01-01')
-    gdp = gdp.drop(['year_as_date', 'Year'], axis=1)
+    gdp = gdp.drop(['year_as_date', 'Year', 'GDP_billion_dollars'], axis=1)
     gdp = gdp.groupby(['time_period'])\
-             .agg('mean')\
-             .rename({'GDP_billion_dollars': 'gdpavg_timepd (billions)'}, axis=1)
+             .agg('mean')
+
 
     return pd.merge(licenses, gdp, how='left', on='time_period')
 
