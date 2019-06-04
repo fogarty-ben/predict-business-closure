@@ -17,6 +17,8 @@ import license_clean
 import pipeline_library as pl
 
 
+
+
 def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                    save_figs=False):
     '''
@@ -36,7 +38,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     if dataset is None:
         df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
-        df = dataset
+        df = dataset #replace with pickling?
 
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
@@ -46,13 +48,10 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
         testing_splits[i] = preprocess_data(testing_splits[i], **preprocessing)
 
-
         training_splits[i], testing_splits[i] = generate_features(training_splits[i],
                                                                   testing_splits[i],
                                                                   **features)
-    
-    return testing_splits[-1]
-    
+    return training_splits[-1], testing_splits[-1]
     '''
     for i in range(len(models)):
         model = models[i]
@@ -65,7 +64,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                                  fig_prefix=model_name)
         else:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name)
-'''
+        '''
 
 def transform_data(df):
     '''
@@ -191,6 +190,8 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         for missing_col in missing_testing_cols:
             testing[missing_col] = 0
 
+
+
     for start_col, end_col in duration_cols:
         training[start_col + '-' + end_col + "_duration"] = pl.days_between(training[start_col], 
                                                                           training[end_col])
@@ -204,7 +205,6 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     for cols in interaction_cols:
         testing = pl.create_interactions(training, cols)
         training = pl.create_interactions(testing, cols)
-        
 
     training = training.drop(drop_cols, axis=1)
     testing = testing.drop(drop_cols, axis=1)
@@ -228,8 +228,8 @@ def train_classifiers(model, training):
     classifiers = []
     for i in range(len(training)):
         print('Building with training set {}'.format(i + 1))
-        features = training[i].drop('not_fully_funded_60days', axis=1) #update for project
-        target = training[i].not_fully_funded_60days #update for project
+        features = training[i].drop('no_renew_nextpd', axis=1)
+        target = training[i].no_renew_nextpd
         classifiers.append(pl.generate_classifier(features, target, model))
 
     return classifiers
@@ -250,7 +250,7 @@ def predict_probs(trained_classifiers, testing_splits):
     pred_probs = []
     for i in range(len(trained_classifiers)):
         print('Predicting probabilies with testing set {}'.format(i+1))
-        features = testing_splits[i].drop('not_fully_funded_60days', axis=1) #update for project
+        features = testing_splits[i].drop('no_renew_nextpd', axis=1)
         pred_probs.append(pl.predict_target_probability(trained_classifiers[i],
                                                         features))
 
@@ -279,7 +279,8 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
     table = pd.DataFrame()
     for i in range(len(pred_probs)):
         print('Evaluating predictions with testing set {}'.format(i+1))
-        y_actual = testing_splits[i].not_fully_funded_60days #update for project
+        y_actual = testing_splits[i].no_renew_nextpd
+        print(sum(1 - y_actual))
         table['Test/Training Set {}'.format(i + 1)], fig =\
             pl.evaluate_classifier(pred_probs[i], y_actual,\
             [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], seed=seed,

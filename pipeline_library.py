@@ -887,4 +887,6 @@ def convert_iter_dummy(df, col):
     rv = pd.DataFrame(mlb.fit_transform(df[col]),
                       columns=list(map(lambda x: col + '_' + x, mlb.classes_)),
                       index=df.index)
+    df = df.drop(col, axis=1)
+
     return pd.concat([df, rv], axis=1)
