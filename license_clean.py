@@ -68,9 +68,21 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
 
     # getting additional datasets
     print('Loading additional datasets...')
-    census_2000 = cen.get_2000_census_data(tokens)
-    census_2010 = cen.get_2010_census_data(tokens) 
-    zbp = cen.get_zbp_data(tokens)
+    try:
+        census_2000 = cen.get_2000_census_data(tokens)
+    except json.JSONDecodeError:
+        print('---Error obtaining 2000 Census data, retrying request')
+        census_2000 = cen.get_2000_census_data(tokens)
+    try:
+        census_2010 = cen.get_2010_census_data(tokens) 
+    except:
+        print('---Error obtaining 2010 Census data, retrying request')
+        census_2010 = cen.get_2010_census_data(tokens)
+    try:
+        zbp = cen.get_zbp_data(tokens)
+    except json.JSONDecodeError:
+        print('---Error obtaining ZBP Census data, retrying request')
+        zbp = cen.get_zbp_data(tokens)
     cta_ward = add.get_rides(tokens)
     real_estate = add.get_realestate(ZILLOW_FILEPATH)
     ump, gdp = add.get_ecofeatures(UMP_FILEPATH, GDP_FILEPATH)
