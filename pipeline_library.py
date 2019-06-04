@@ -11,7 +11,7 @@ from textwrap import wrap
 import json
 import random
 from dateutil.relativedelta import relativedelta
-from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree
+from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
 import graphviz
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -867,12 +867,19 @@ def days_between(date, ref_date):
 
     return duration
 
-def set_dummy(df, var):
+def convert_iter_dummy(df, col):
     '''
-    returns a df with dummy variables
+    Converts a columns in a data frame with iterables (list, set, etc.) to a 
+    set of dummy columns.
+
+    Inputs:
+    df (pandas dataframe): the dataset
+    col (column name): the name of the column containing the iterables
+
+    Returns: pandas dataframe
     '''
-    dummies = df[var].str.join(sep='*').str.get_dummies(sep='*')
-    colnames = ['{}_{}'.format(var, col) for col in dummies.columns]
-    dummies.columns = colnames
-    result = pd.concat([df, dummies], axis=1).drop(columns=var)
-    return result
+    mlb = preprocessing.MultiLabelBinarizer()
+
+    rv = pd.DataFrame(mlb.fit_transform(df[col]), columns=list(map(lambda x: col + '_' + x, mlb.classes_)))
+
+    return pd.concat([df, rv], axis=1)
