@@ -83,6 +83,13 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = link_gdp_licenses(gdp, lcs)
     lcs = link_ump_licenses(ump, lcs)
 
+    print('Dropping extraneous columns...')
+    drop_cols = ['legal_name', 'doing_business_as_name',
+                 'license_descriptions', 'business_activities',
+                 'business_activity_ids', 'address', 'city', 'state',
+                 'ward_precinct', 'geometry']
+    lcs = lcs.drop(drop_cols, axis=1)
+
     return lcs
 
 def obtain_lcs(tokens):

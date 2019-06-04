@@ -38,17 +38,22 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     else:
         df = dataset
 
+    print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
 
+    print('Preprocessing data and generating features...')
     for i in range(len(training_splits)):
         training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
         testing_splits[i] = preprocess_data(testing_splits[i], **preprocessing)
 
-'''
+
         training_splits[i], testing_splits[i] = generate_features(training_splits[i],
                                                                   testing_splits[i],
-                                                                  time_buckets
                                                                   **features)
+    
+    return testing_splits[-1]
+    
+    '''
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
@@ -176,9 +181,9 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         testing = pl.create_dummies(testing, col, values=values)
 
     for col in iter_dummy_cols:
-        training = pl.set_dummies(df, col)
+        training = pl.convert_iter_dummy(training, col)
         training_cols = set(training.columns)
-        testing = pl.set_dummies(df, col)
+        testing = pl.convert_iter_dummy(testing, col)
         testing_cols = set(testing.columns)
         extra_testing_cols = testing_cols - training_cols
         testing = testing.drop(extra_testing_cols, axis=1)
@@ -194,11 +199,11 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
 
     for col, specs in binary_cut_cols.items():
         training[col + '_tf'] = pl.cut_binary(training[col], **specs)
-        testing[co + '_tf'] = pl.cut_binary(testing[col], **specs)
+        testing[col + '_tf'] = pl.cut_binary(testing[col], **specs)
 
     for cols in interaction_cols:
-        testing = pl.create_interactions(df, cols)
-        training = pl.create_interactions(df, cols)
+        testing = pl.create_interactions(training, cols)
+        training = pl.create_interactions(testing, cols)
         
 
     training = training.drop(drop_cols, axis=1)
@@ -346,4 +351,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     data, preprocess, features, models, seed, save_figs = parse_args(vars(args))
-    apply_pipeline(data, preprocess, features, models, seed, save_figs)
+    apply_pipeline(preprocess, features, models, data, seed, save_figs)

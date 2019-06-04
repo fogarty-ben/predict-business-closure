@@ -24,7 +24,8 @@
              "Some college or associate's degree": "median",
              "Bachelor's degree": "median",
              "Graduate or professional degree": "median",
-             "MedianValuePerSqfeet_Zip": "median"},
+             "MedianValuePerSqfeet_Zip": "median",
+             "license_codes": "manual"},
  "manual_vals": {"avg_weekday_rides_last6": 0,
                  "monthavg_last6": 0,
                  "ssa": -1}

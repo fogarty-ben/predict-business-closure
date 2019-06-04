@@ -91,7 +91,7 @@ def link_cta_licenses(cta, licenses, months):
                              licenses.exp_month_year.astype(str))
 
     return pd.merge(licenses, cta, how='left', on='merge_col')\
-             .drop(['exp_month_year', 'merge_col', 'Wards'], axis=1)
+             .drop(['month_year', 'exp_month_year', 'merge_col', 'Wards'], axis=1)
 
 def link_real_estate_licenses(real_estate, licenses, months):
     '''

@@ -11,7 +11,7 @@ from textwrap import wrap
 import json
 import random
 from dateutil.relativedelta import relativedelta
-from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
+from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing, impute
 import graphviz
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -252,15 +252,12 @@ def impute_missing(series, method=None, manual_val=None):
 
     Returns: pandas series
     '''
-    if method is None and pd.api.types.is_numeric_dtype(series):
-        method = 'median'
-    elif method is None and not pd.api.types.is_numeric_dtype(series):
-        method = 'mode'
     if manual_val is None:
         manual_val = 'N/A'
 
     if method == 'mean':
         mean = np.mean(series)
+        print('returning')
         return series.fillna(mean)
     elif method == 'median':
         median = np.median(series.dropna())
@@ -297,12 +294,16 @@ def preprocess_data(df, methods=None, manual_vals=None):
     if manual_vals is None:
         manual_vals = {}
 
-    missing = df.apply(identify_missing)\
+    to_process = list(methods.keys())
+    missing = df[to_process]\
+                .apply(identify_missing)\
                 .add_suffix('_missing')
-    df = df.apply(lambda x: impute_missing(x, method=methods.get(x.name, None),
-                                           manual_val=manual_vals.get(x.name, None)),
-                  axis=0)
-    return pd.concat([df, missing], axis=1)
+    processed_cols = df[to_process]\
+                       .apply(lambda x: impute_missing(x, method=methods.get(x.name, None),
+                              manual_val=manual_vals.get(x.name, None)),
+                              axis=0)
+    df = df.drop(to_process, axis=1)
+    return pd.concat([df, processed_cols, missing], axis=1)
 
 def cut_binary(series, threshold, or_equal_to=False):
     '''
@@ -318,6 +319,9 @@ def cut_binary(series, threshold, or_equal_to=False):
 
     Returns: pandas series
     '''
+    if not pd.api.types.is_numeric_dtype(series):
+        series = series.astype(float)
+
     if or_equal_to:
         return  series >= threshold
     else:
@@ -832,7 +836,7 @@ def create_temporal_splits(data, time_period_col):
     '''
     training_splits = []
     testing_splits = []
-    max_timepd = max(data[time_period_col])
+    max_timepd = int(max(data[time_period_col]))
     for i in range(max_timepd - 2):
         training_mask = data[time_period_col] <= i
         testing_mask = data[time_period_col] == i + 2
@@ -880,6 +884,7 @@ def convert_iter_dummy(df, col):
     '''
     mlb = preprocessing.MultiLabelBinarizer()
 
-    rv = pd.DataFrame(mlb.fit_transform(df[col]), columns=list(map(lambda x: col + '_' + x, mlb.classes_)))
-
+    rv = pd.DataFrame(mlb.fit_transform(df[col]),
+                      columns=list(map(lambda x: col + '_' + x, mlb.classes_)),
+                      index=df.index)
     return pd.concat([df, rv], axis=1)
