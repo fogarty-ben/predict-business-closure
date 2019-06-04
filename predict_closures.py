@@ -34,21 +34,20 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     '''
     ## Optional overide if dataset is specified?
     if dataset is None:
-        df, buckets = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
+        df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
-        col_types = {} #need to add
-        df = pl.read_csv(dataset, col_types=col_types, index_col='projectid')
-        df = transform_data(df)
+        df = dataset
 
-    training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period',
-                                                                bucket_size=2, time_buckets=buckets)
+    training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
 
     for i in range(len(training_splits)):
         training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
         testing_splits[i] = preprocess_data(testing_splits[i], **preprocessing)
 
+'''
         training_splits[i], testing_splits[i] = generate_features(training_splits[i],
                                                                   testing_splits[i],
+                                                                  time_buckets
                                                                   **features)
     for i in range(len(models)):
         model = models[i]
@@ -61,6 +60,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                                  fig_prefix=model_name)
         else:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name)
+'''
 
 def transform_data(df):
     '''
@@ -93,7 +93,7 @@ def preprocess_data(df, methods=None, manual_vals=None):
     return df
 
 def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
-                      dummy_cols, iter_dummy_cols, binary_cut_cols, tf_cols, 
+                      dummy_cols, iter_dummy_cols, binary_cut_cols, 
                       duration_cols, interaction_cols, drop_cols):
     '''
     Generates categorical, binary, and scaled features. While features are
@@ -106,7 +106,7 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     - Scale columns (new column with name of original column + '_scale')
     - Bin columns (replaces original column)
     - Create dummy columns (new column with name of original + '_tf')
-    - Create dummy columns for iterables (???)
+    - Create dummy columns for iterables (replaces original column)
     - Binary cut columns (replaces original column)
     - Duration columns (new column with original name + '_duration')
     - Create interaction columns ()
@@ -130,9 +130,10 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     dummy_cols (list of strs): names of columns to convert to dummy variables
     iter_dummy_cols (list of col names): name of columns where each value is an
         iterable to be converted to a set of dummy columns
-    duration_cols (): names of columns to turn into a duration from some date
-    interaction_cols (list of n-ples of col names): tuples of columns to interact
-        with one another
+    duration_cols (list of tuples of column names): first column is name of column containg
+        start date, second column is name of column containing end dates
+    interaction_cols (list of n-ples of col names): each tuple contains names of
+        columns to interact with one another
     binary_cut_cols (dict of dicts): each key is the name of a column to cut
         into two groups based on some threshold and each value is a dictionry
         of arguments to pass to the cut_binary function in pipeline_library
@@ -175,17 +176,30 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         testing = pl.create_dummies(testing, col, values=values)
 
     for col in iter_dummy_cols:
-        ###
+        training = pl.set_dummies(df, col)
+        training_cols = set(training.columns)
+        testing = pl.set_dummies(df, col)
+        testing_cols = set(testing.columns)
+        extra_testing_cols = testing_cols - training_cols
+        testing = testing.drop(extra_testing_cols, axis=1)
+        missing_testing_cols = training_cols - testing_cols
+        for missing_col in missing_testing_cols:
+            testing[missing_col] = 0
 
-    for col in duration_cols:
-        ###
+    for start_col, end_col in duration_cols:
+        training[start_col + '-' + end_col + "_duration"] = pl.days_between(training[start_col], 
+                                                                          training[end_col])
+        testing[start_col + '-' + end_col + "_duration"] = pl.days_between(testing[start_col],
+                                                                         testing[end_col])
 
     for col, specs in binary_cut_cols.items():
         training[col + '_tf'] = pl.cut_binary(training[col], **specs)
         testing[co + '_tf'] = pl.cut_binary(testing[col], **specs)
 
-    for col in interaction_cols:
-        ###
+    for cols in interaction_cols:
+        testing = pl.create_interactions(df, cols)
+        training = pl.create_interactions(df, cols)
+        
 
     training = training.drop(drop_cols, axis=1)
     testing = testing.drop(drop_cols, axis=1)

@@ -44,8 +44,8 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = clean_lcs(lcs)
 
     print('Changing unit of analysis...')
-    lcs, buckets = create_time_buckets(lcs, {'years': 2}, 'license_start_date',
-                                       '2002-01-01') #parameterize?; need to deal with missing start date before here (apprx. 9863)
+    lcs = create_time_buckets(lcs, {'years': 2}, 'license_start_date',
+                                       '2002-01-01', "2017-12-31") #parameterize?; need to deal with missing start date before here (apprx. 9863)
     lcs = collapse_licenses(lcs)
 
     print('Generating outcome variable...')
@@ -83,7 +83,7 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = link_gdp_licenses(gdp, lcs)
     lcs = link_ump_licenses(ump, lcs)
 
-    return lcs, buckets
+    return lcs
 
 def obtain_lcs(tokens):
     '''
@@ -94,7 +94,7 @@ def obtain_lcs(tokens):
     lcs = pd.DataFrame.from_records(results)
     return lcs
 
-def create_time_buckets(lcs, bucket_size, date_col, start_date=None):
+def create_time_buckets(lcs, bucket_size, date_col, start_date=None, end_date=None):
     '''
     Labels each license with a time period. Time periods are defined by the
     bucket size and start date arguments and cut based on the date_col
@@ -107,30 +107,36 @@ def create_time_buckets(lcs, bucket_size, date_col, start_date=None):
     date_col (col name): the column containg the date to split time periods on
     start_date (str): first day to include in a bucket, string of the form
         YYYY-MM-DD or YYYYMMDD
+    end_date (str): last day to include in a bucket, string of the form
+        YYYY-MM-DD or YYYYMMDD
 
     Returns: tuple of pandas dataframe, list of bucket starting dates
+
+    Stray setting with copy warning here
     '''
     if not start_date:
         start_date = min(lcs[date_col])
+    if end_date is not None:
+        end_date = pd.to_datetime(end_date)
+        lcs = lcs[lcs[date_col] <= end_date]
     if not pd.core.dtypes.common.is_datetime_or_timedelta_dtype(lcs[date_col]):
-        lcs[date_col] = pd.to_datetime(lcs[date_col])
+        lcs.loc[:, date_col] = pd.to_datetime(lcs[date_col])
 
 
     start_date = pd.to_datetime(start_date)
     bucket_size = relativedelta(**bucket_size)
-    lcs['time_period'] = float('nan')
-    buckets = []
+    lcs.loc[:, 'time_period'] = float('nan')
 
     i = 0
     stop_date = max(lcs[date_col])
     while  start_date + i * bucket_size <= stop_date:
-        buckets.append(start_date + i * bucket_size)
         start_mask = start_date + i * bucket_size <= lcs[date_col]
         end_mask = lcs[date_col] < start_date + (i + 1) * bucket_size
         lcs.loc[start_mask & end_mask, 'time_period'] = i
+        lcs.loc[start_mask & end_mask, 'bucket_end'] = start_date + (i + 1) * bucket_size
         i += 1
 
-    return lcs[lcs.time_period.notna()], buckets
+    return lcs[lcs.time_period.notna()]
 
 def collapse_licenses(lcs):
     '''
@@ -171,7 +177,8 @@ def collapse_licenses(lcs):
                             "precinct": "first",
                             "ward": "first",
                             "ward_precinct": "first",
-                            "ssa": "first"})
+                            "ssa": "first",
+                            "bucket_end": "first"})
     multi_index = lcs_collapse.columns.to_list()
     ind = pd.Index(["_".join(entry) for entry in multi_index])
     lcs_collapse.columns = ind
@@ -200,7 +207,8 @@ def collapse_licenses(lcs):
                                         "precinct_first": "precinct",
                                         "ward_first": "ward",
                                         "ward_precinct_first": "ward_precinct",
-                                        "ssa_first": "ssa"},
+                                        "ssa_first": "ssa",
+                                        "bucket_end_first": "bucket_end"},
                                         axis=1)
 
     return lcs_collapse

@@ -819,47 +819,25 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
 
     return fig
 
-def create_temporal_splits(data, time_period_col, bucket_size, time_buckets):
+def create_temporal_splits(data, time_period_col):
     '''
     Splits into different sets by time intervals.
 
     Inputs:
-    df (pandas dataframe): the full dataset to split
-    date_col (str): the name of the column in the dataframe containing the date
-        attribute to split on
-    time_length (dictionary): specifies the time length of each split, with
-        strings of units of time (i.e. hours, days, months, years, etc.) as keys
-        and integers as values; for example 6 months would be {'months': 6}
-    gap (dictionary): optional length of time to leave between the end of the
-        training set and the beginning of the test set, specified as a dictionary
-        with string units of time as keys and integers as values
-    start_date (str): the first date to include in a testing split; value should
-        be in the form "yyyy-mm-dd", if blank the first date in a training set
-        will be the first date in the data set plus the value of time_length
-
+    data (pandas dataframe): the full dataset to split
+    time_period_col (col name): name of the column containing time periods
+    
     Returns: tuple of list of pandas dataframes, the first of which contains
         test sets and the second of which contains training sets
     '''
-    times_to_split = []
     training_splits = []
     testing_splits = []
-    
-    # get start and ending time periods
-    start = time_buckets[0]
-    end = time_buckets[-2]
-
-    # get temporal split cutoff times
-    train_period = [0]
-    test_period = 0 + bucket_size
-    while test_period + bucket_size <= end:
-        times_to_split.append([list(train_period), test_period])
-        test_period += 1
-        train_period.append(train_period[-1]+1)
-
-    # split data
-    for train_period, test_period in times_to_split:
-        training_splits.append(data[data[time_period_col].isin(train_period)])
-        testing_splits.append(data[data[time_period_col] == test_period])
+    max_timepd = max(data[time_period_col])
+    for i in range(max_timepd - 2):
+        training_mask = data[time_period_col] <= i
+        testing_mask = data[time_period_col] == i + 2
+        training_splits.append(data[training_mask])
+        testing_splits.append(data[testing_mask])
 
     return training_splits, testing_splits
 
@@ -885,7 +863,7 @@ def days_between(date, ref_date):
     '''
     date = pd.to_datetime(date)
     ref_date = pd.to_datetime(ref_date)
-    duration = (date-ref_date).dt.days
+    duration = (ref_date - date).dt.days
 
     return duration
 
