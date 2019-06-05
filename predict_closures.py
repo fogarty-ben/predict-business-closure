@@ -358,7 +358,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=("Apply machine learning" +
                                                   "pipeline to business license"))
     parser.add_argument('-d', '--data', type=str, dest='dataset', required=False,
-                        help="Optional path to the business dataset")
+                        help=("Optional path to the business dataset pickle so that" +
+                              " the dataset doesn't have to be redownloaded")
     parser.add_argument('-f', '--features', type=str, dest='features',
                         required=True, help="Path to the features config JSON")
     parser.add_argument('-m', '--models', type=str, dest='models',
