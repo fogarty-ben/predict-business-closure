@@ -256,7 +256,8 @@ def train_classifiers(model, training):
         feature_importance = pl.get_feature_importance(features, classifiers[-1], model)
         if fi_available:
             print(feature_importance.sort_values('Importance', ascending=False)\
-                                    .head(15))
+                                    .head(15)\
+                                    .to_string())
         else:
             print(feature_importance)
         print('\n')
@@ -319,7 +320,7 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
             plt.close()
         else:
             plt.show()
-    print(table)
+    print(table.to_string())
 
 def parse_args(args):
     '''
