@@ -9,3 +9,6 @@ sklearn==0.20.3
 python-graphviz==0.10.1
 seaborn==0.9.0
 scipy==1.2.1
+IPython==7.5.0
+
+#after doing this run pip install --upgrade fiona
