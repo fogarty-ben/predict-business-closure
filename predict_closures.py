@@ -68,6 +68,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                 output['pred_probs'] = prediction
                 output.to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
                               index=False)
+                output = output.drop('pred_probs', axis=1)
         print('\n')
         if save_figs:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name,
