@@ -848,6 +848,24 @@ def create_temporal_splits(data, time_period_col):
 
     return training_splits, testing_splits
 
+def get_feature_importance(X_train, clf, model):
+    '''
+    clf: a classfier object
+    model_type: model type abbreviation
+    '''
+    model_type = model['model']
+    if model_type in ['RF', 'ET', 'AB', 'GB', 'DT']:
+        importances = list(zip(X_train.columns, clf.feature_importances_))
+    elif model_type in ['SVM', 'LR']:
+        importances = list(zip(X_train.columns, clf.coef_[0]))
+    else:
+        importances = None
+
+    rv = pd.DataFrame(importances)
+    rv.columns = ['Feature', 'Importance']
+    rv = rv.set_index('Feature')
+    return rv
+
 def create_interactions(df, cols_to_interact):
     '''
     Create feature interactions
