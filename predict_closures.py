@@ -20,7 +20,7 @@ import pipeline_library as pl
 
 
 def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
-                   save_figs=False):
+                   save_figs=False, save_preds=False):
     '''
     Applies the pipeline library to predicting if a project on Donors Choose
     will not get full funding within 60 days.
@@ -55,9 +55,16 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
-        model_name = model.get('name', 'Model #{}'.format(i + 1))
+        model_name = model.get('name', 'model-'.format(i + 1))
         trained_classifiers = train_classifiers(model, training_splits)
+        print('\n')
         pred_probs = predict_probs(trained_classifiers, testing_splits)
+        if save_preds:
+            for i, prediction in enumerate(pred_probs):
+                output = pd.concat([prediction, testing_splits[i]], axis=0)
+                output.to_csv(model_name + '_set-{}_pred_probs'.format(i + 1),
+                              index=False)
+        print('\n')
         if save_figs:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name,
                                  fig_prefix=model_name)
@@ -110,7 +117,7 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     - Create dummy columns (new column with name of original + '_tf')
     - Create dummy columns for iterables (replaces original column)
     - Binary cut columns (replaces original column)
-    - Duration columns (new column with original name + '_duration')
+    - Duration columns (automatically scaled) (new column with original name + '_duration')
     - Create interaction columns ()
     - Drop columns (eliminates original column)
 
@@ -196,6 +203,10 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
                                                                           training[end_col])
         testing[start_col + '-' + end_col + "_duration"] = pl.days_between(testing[start_col],
                                                                          testing[end_col])
+        training.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(training[start_col + '-' + end_col + "_duration"], a=max_training,
+                                                                   b=min_training)
+        testing.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(testing[start_col + '-' + end_col + "_duration"], a=max_training,
+                                                       b=min_training)
 
     for col, specs in binary_cut_cols.items():
         training[col + '_tf'] = pl.cut_binary(training[col], **specs)
@@ -225,11 +236,19 @@ def train_classifiers(model, training):
     Returns: 2D list of trained sklearn classifiers
     '''
     classifiers = []
+    fi_available = model['model'] in ['rf', 'dt', 'boosting', 'bagging', 'lr', 'svm']
     for i in range(len(training)):
         print('Building with training set {}'.format(i + 1))
         features = training[i].drop('no_renew_nextpd', axis=1)
         target = training[i].no_renew_nextpd
         classifiers.append(pl.generate_classifier(features, target, model))
+        feature_importance = pl.get_feature_importance(features, classifiers[-1], model)
+        if fi_available:
+            print(feature_importance.sort_values('Importance', ascending=False)\
+                                    .head(15))
+        else:
+            print(feature_importance)
+        print('\n')
 
     return classifiers
 
@@ -299,12 +318,14 @@ def parse_args(args):
     Inputs:
     args (dict): dict of arguments, typically from the command line; valid keys
         are:
-        - 'dataset': path to the Donors' Choose dataset (required)
+        - 'dataset': path to the dataset (required)
         - 'features': path to the features config json file (required)
         - 'models': path to the model specs json file (required)
         - 'preprocess': path to the preprocessing config json file (optional)
         - 'seed': numeric seed for tiebreaking (optional)
         - 'save_figs': boolean for wheter figures should be saved or displayed
+                       (optional)
+        - 'save_pred': boolean for whether predictions should be output to csv
                        (optional)
 
     Returns: 6-ple of filepath to dataset (str), pre-procesing specs (dict),
@@ -329,13 +350,15 @@ def parse_args(args):
 
     save_figs = args.get('save_figs', False)
 
-    return dataset_fp, preprocess_specs, feature_specs, model_specs, seed, save_figs
+    save_preds = args.get('save_preds', False)
+
+    return dataset_fp, preprocess_specs, feature_specs, model_specs, seed, save_figs, save_preds
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=("Apply machine learning" +
-                                                  "pipeline to Donors' Choose Data"))
+                                                  "pipeline to business license"))
     parser.add_argument('-d', '--data', type=str, dest='dataset', required=False,
-                        help="Path to the Donors' Choose dataset")
+                        help="Optional path to the business dataset")
     parser.add_argument('-f', '--features', type=str, dest='features',
                         required=True, help="Path to the features config JSON")
     parser.add_argument('-m', '--models', type=str, dest='models',
@@ -347,7 +370,10 @@ if __name__ == '__main__':
     parser.add_argument('--savefigs', dest='save_figs',
                         required=False, action='store_true',
                         help='Save figures instead of displaying them')
+    parser.add_argument('--savepred', dest='save_probs',
+                        required=False, action='store_true',
+                        help='Save predictions to file')
     args = parser.parse_args()
 
-    data, preprocess, features, models, seed, save_figs = parse_args(vars(args))
-    apply_pipeline(preprocess, features, models, data, seed, save_figs)
+    data, preprocess, features, models, seed, save_figs, save_preds = parse_args(vars(args))
+    apply_pipeline(preprocess, features, models, data, seed, save_figs, save_preds)
