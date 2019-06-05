@@ -257,7 +257,6 @@ def impute_missing(series, method=None, manual_val=None):
 
     if method == 'mean':
         mean = np.mean(series)
-        print('returning')
         return series.fillna(mean)
     elif method == 'median':
         median = np.median(series.dropna())
