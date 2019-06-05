@@ -593,7 +593,7 @@ def generate_classifier(features, target, model_specs):
                    'knn': neighbors.KNeighborsClassifier,
                    'svc': svm.LinearSVC,
                    'rf': ensemble.RandomForestClassifier,
-                   'boosting': ensemble.AdaBoostClassifier,
+                   'boosting': ensemble.GradientBoostingClassifier,
                    'bagging': ensemble.BaggingClassifier,
                    'dummy': dummy.DummyClassifier}
 
