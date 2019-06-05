@@ -11,7 +11,7 @@ from textwrap import wrap
 import json
 import random
 from dateutil.relativedelta import relativedelta
-from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing, impute
+from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
 import graphviz
 import pandas as pd
 import matplotlib.pyplot as plt

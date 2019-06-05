@@ -13,6 +13,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import datetime
 
 import license_clean
 import pipeline_library as pl
@@ -39,8 +40,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     if dataset is None:
         df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
-        df = dataset
-       # df = pickle.load(open(dataset, "rb" ))
+        df = pickle.load(open(dataset, "rb" ))
 
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
@@ -57,6 +57,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
+        print('Start time: {}\n'.format(datetime.datetime.now()))
         model_name = model.get('name', 'model-'.format(i + 1))
         trained_classifiers = train_classifiers(model, training_splits)
         print('\n')
@@ -73,6 +74,9 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                                  fig_prefix=model_name)
         else:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name)
+
+        print('\nEnd time: {}'.format(datetime.datetime.now()))
+
 
 def transform_data(df):
     '''
