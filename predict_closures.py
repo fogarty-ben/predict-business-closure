@@ -382,7 +382,7 @@ if __name__ == '__main__':
     parser.add_argument('--savefigs', dest='save_figs',
                         required=False, action='store_true',
                         help='Save figures instead of displaying them')
-    parser.add_argument('--savepred', dest='save_probs',
+    parser.add_argument('--save_pred', dest='save_probs',
                         required=False, action='store_true',
                         help='Save predictions to file')
     args = parser.parse_args()
