@@ -26,7 +26,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     will not get full funding within 60 days.
 
     Inputs:
-    dataset (str): path to the file containing the training data
+    dataset (str): path to the pickle file containing the training data
     preprocessing (dict): dictionary of keyword arguments to pass to the
         preprocess_data function
     seed (str): seed used for random process to adjucate ties when translating
@@ -38,7 +38,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     if dataset is None:
         df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
-        df = dataset #replace with pickling?
+        df = pickle.load(open(dataset, "rb" ))
 
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
