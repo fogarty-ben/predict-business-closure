@@ -264,6 +264,8 @@ def add_outcome_variable(lcs):
     lcs.loc[mask, 'no_renew_nextpd'] = lcs.loc[mask, :].apply(find_in_nextpd,
                                                              axis=1,
                                                              args=[lcs])
+    lcs['no_renew_nextpd'] = lcs['no_renew_nextpd']\
+                                .astype(bool)
 
     return lcs
 

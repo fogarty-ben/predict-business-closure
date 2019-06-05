@@ -43,6 +43,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
 
+
     print('Preprocessing data and generating features...')
     for i in range(len(training_splits)):
         training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
@@ -51,8 +52,6 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         training_splits[i], testing_splits[i] = generate_features(training_splits[i],
                                                                   testing_splits[i],
                                                                   **features)
-    return training_splits[-1], testing_splits[-1]
-    '''
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
@@ -64,7 +63,6 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                                  fig_prefix=model_name)
         else:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name)
-        '''
 
 def transform_data(df):
     '''
@@ -161,7 +159,8 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     for col in scale_cols:
         max_training = max(training[col])
         min_training = min(training[col])
-        training.loc[:, col + '_scale'] = pl.scale_variable_minmax(training[col])
+        training.loc[:, col + '_scale'] = pl.scale_variable_minmax(training[col], a=max_training,
+                                                                   b=min_training)
         testing.loc[:, col + '_scale'] = pl.scale_variable_minmax(testing[col], a=max_training,
                                                        b=min_training)
 
@@ -280,7 +279,6 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
     for i in range(len(pred_probs)):
         print('Evaluating predictions with testing set {}'.format(i+1))
         y_actual = testing_splits[i].no_renew_nextpd
-        print(sum(1 - y_actual))
         table['Test/Training Set {}'.format(i + 1)], fig =\
             pl.evaluate_classifier(pred_probs[i], y_actual,\
             [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], seed=seed,

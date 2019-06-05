@@ -401,6 +401,9 @@ def scale_variable_minmax(series, a=None, b=None):
     if b is None:
         b = min(series)
 
+    if (a - b) == 0:
+        return 0
+
     return (2 * series - (a + b)) / (a - b)
 
 def generate_n_occurences(series, addl_obs=None):
