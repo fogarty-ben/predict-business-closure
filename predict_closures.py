@@ -8,6 +8,7 @@ Ben Fogarty
 
 import argparse
 import json
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -38,7 +39,8 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     if dataset is None:
         df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
-        df = pickle.load(open(dataset, "rb" ))
+        df = dataset
+       # df = pickle.load(open(dataset, "rb" ))
 
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
@@ -61,8 +63,9 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         pred_probs = predict_probs(trained_classifiers, testing_splits)
         if save_preds:
             for i, prediction in enumerate(pred_probs):
-                output = pd.concat([prediction, testing_splits[i]], axis=0)
-                output.to_csv(model_name + '_set-{}_pred_probs'.format(i + 1),
+                output = testing_splits[i]
+                output['pred_probs'] = prediction
+                output.to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
                               index=False)
         print('\n')
         if save_figs:
@@ -203,10 +206,14 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
                                                                           training[end_col])
         testing[start_col + '-' + end_col + "_duration"] = pl.days_between(testing[start_col],
                                                                          testing[end_col])
+        max_training = max(training[start_col + '-' + end_col + "_duration"])
+        min_training = min(training[start_col + '-' + end_col + "_duration"])
         training.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(training[start_col + '-' + end_col + "_duration"], a=max_training,
                                                                    b=min_training)
         testing.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(testing[start_col + '-' + end_col + "_duration"], a=max_training,
                                                        b=min_training)
+        training = training.drop(start_col + '-' + end_col + "_duration", axis=1)
+        testing = testing.drop(start_col + '-' + end_col + "_duration", axis=1)
 
     for col, specs in binary_cut_cols.items():
         training[col + '_tf'] = pl.cut_binary(training[col], **specs)
@@ -359,7 +366,7 @@ if __name__ == '__main__':
                                                   "pipeline to business license"))
     parser.add_argument('-d', '--data', type=str, dest='dataset', required=False,
                         help=("Optional path to the business dataset pickle so that" +
-                              " the dataset doesn't have to be redownloaded")
+                              " the dataset doesn't have to be redownloaded"))
     parser.add_argument('-f', '--features', type=str, dest='features',
                         required=True, help="Path to the features config JSON")
     parser.add_argument('-m', '--models', type=str, dest='models',
