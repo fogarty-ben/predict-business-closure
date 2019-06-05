@@ -17,7 +17,7 @@ from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-MAX_REQS = 1000000000
+MAX_REQS = 100
 TOKENS_FILEPATH = 'tokens.json'
 ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
 UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
@@ -26,7 +26,7 @@ CTA_MONTHS = 6
 REAL_ESTATE_MONTHS = 6
 
 def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS, 
-                 real_estate_months=REAL_ESTATE_MONTHS):
+                 real_estate_months=REAL_ESTATE_MONTHS, pickle_filepath=None):
     '''
     obtain and clean business licenses data 
     
@@ -101,6 +101,9 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
                  'business_activity_ids', 'address', 'city', 'state',
                  'ward_precinct', 'geometry']
     lcs = lcs.drop(drop_cols, axis=1)
+
+    if pickle_filepath != None:
+        pickle.dump(lcs, open(pickle_filepath, "wb" ))
 
     return lcs
 
