@@ -58,7 +58,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
         print('Start time: {}\n'.format(datetime.datetime.now()))
-        model_name = model.get('name', 'model-'.format(i + 1))
+        model_name = model.get('name', 'model-{}'.format(i + 1))
         trained_classifiers = train_classifiers(model, training_splits)
         print('\n')
         pred_probs = predict_probs(trained_classifiers, testing_splits)
@@ -383,7 +383,7 @@ if __name__ == '__main__':
     parser.add_argument('--savefigs', dest='save_figs',
                         required=False, action='store_true',
                         help='Save figures instead of displaying them')
-    parser.add_argument('--save_pred', dest='save_probs',
+    parser.add_argument('--savepreds', dest='save_preds',
                         required=False, action='store_true',
                         help='Save predictions to file')
     args = parser.parse_args()
