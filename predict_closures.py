@@ -282,6 +282,7 @@ def predict_probs(trained_classifiers, testing_splits):
     for i in range(len(trained_classifiers)):
         print('Predicting probabilies with testing set {}'.format(i+1))
         features = testing_splits[i].drop('no_renew_nextpd', axis=1)
+        print(list(features.columns))
         pred_probs.append(pl.predict_target_probability(trained_classifiers[i],
                                                         features))
 
