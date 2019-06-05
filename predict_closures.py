@@ -64,11 +64,10 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         pred_probs = predict_probs(trained_classifiers, testing_splits)
         if save_preds:
             for i, prediction in enumerate(pred_probs):
-                output = testing_splits[i]
-                output['pred_probs'] = prediction
-                output.to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
+                testing_splits[i]['pred_probs'] = prediction
+                testing_splits[i].to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
                               index=False)
-                output = output.drop('pred_probs', axis=1)
+                testing_splits[i] = testing_splits[i].drop('pred_probs', axis=1)
         print('\n')
         if save_figs:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name,
@@ -282,7 +281,6 @@ def predict_probs(trained_classifiers, testing_splits):
     for i in range(len(trained_classifiers)):
         print('Predicting probabilies with testing set {}'.format(i+1))
         features = testing_splits[i].drop('no_renew_nextpd', axis=1)
-        print(list(features.columns))
         pred_probs.append(pl.predict_target_probability(trained_classifiers[i],
                                                         features))
 
