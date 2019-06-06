@@ -809,7 +809,7 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
     sns.lineplot(thresholds, precision, drawstyle='steps-pre', ax=ax, label='Precision')
     sns.lineplot(thresholds, recall, drawstyle='steps-pre', ax=ax, label='Recall')
 
-    ax.set_xlabel('Recall')
+    ax.set_xlabel('Threshold')
     ax.set_ylabel('Precision')
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([0.0, 1.01])
