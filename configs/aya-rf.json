@@ -1,0 +1,114 @@
+[
+    {
+        "model": "rf",
+        "n_estimators": 10,
+        "max_depth":5,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 10,
+        "max_depth":10,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 10,
+        "max_depth":50,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 10,
+        "max_depth":70,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 100,
+        "max_depth":5,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 100,
+        "max_depth":10,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 100,
+        "max_depth":50,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 100,
+        "max_depth":70,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    }, 
+    {
+        "model": "rf",
+        "n_estimators": 500,
+        "max_depth":5,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 500,
+        "max_depth":10,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 500,
+        "max_depth":50,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 500,
+        "max_depth":70,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    }, 
+    {
+        "model": "rf",
+        "n_estimators": 1000,
+        "max_depth":5,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 1000,
+        "max_depth":10,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 1000,
+        "max_depth":50,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    },
+    {
+        "model": "rf",
+        "n_estimators": 1000,
+        "max_depth":70,
+        "max_features": "sqrt",
+        "n_jobs": -1
+    }
+]
