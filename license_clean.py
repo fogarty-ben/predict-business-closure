@@ -51,6 +51,9 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     print('Generating outcome variable...')
     lcs = add_outcome_variable(lcs)
 
+    # if we do this, this is where to drop records with latest expiration date
+    # during period
+
     #### add geographies ####
     print('Creating geospatial properties...')
     lcs = lcs.reset_index()
