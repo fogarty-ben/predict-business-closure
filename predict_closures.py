@@ -56,10 +56,9 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                                                                   **features)
 
         print('_' * 20 + '\nTesting set #{}\n'.format(i + 1) + '_' * 20)
-        print('no_renew_nextpd baseline: {}'.format(np.mean(training_splits[i].no_renew_nextpd)))
-        print('number of observations: {}'.format(len(training_splits[i])))
+        print('no_renew_nextpd baseline: {}'.format(np.mean(testing_splits[i].no_renew_nextpd)))
+        print('number of observations: {}'.format(len(testing_splits[i])))
 
-    print(list(training_splits[-1].columns))
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
