@@ -74,7 +74,7 @@ def link_cta_licenses(cta, licenses, months):
 
     Returns: pandas dataframe
     '''
-    licenses['exp_month_year'] = licenses['max_expiration_date'].dt.to_period('M')
+    licenses['exp_month_year'] = licenses['bucket_end'].dt.to_period('M')
 
     cta = cta.groupby('Wards')\
              [['month_year', 'monthtotal', 'avg_weekday_rides']]\

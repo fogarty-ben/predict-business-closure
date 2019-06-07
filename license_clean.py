@@ -53,6 +53,7 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
 
     # if we do this, this is where to drop records with latest expiration date
     # during period
+    lcs = lcs.loc[lcs.max_expiration_date > lcs.bucket_end,:]
 
     #### add geographies ####
     print('Creating geospatial properties...')
@@ -251,7 +252,7 @@ def find_in_nextpd(row, lcs):
     '''
     account_number, site_number, time_period = row.name
 
-    return (account_number, site_number, time_period + 1) in lcs.index
+    return (account_number, site_number, time_period + 1) not in lcs.index
 
 def add_outcome_variable(lcs):
     '''
@@ -270,6 +271,7 @@ def add_outcome_variable(lcs):
     lcs.loc[mask, 'no_renew_nextpd'] = lcs.loc[mask, :].apply(find_in_nextpd,
                                                              axis=1,
                                                              args=[lcs])
+    lcs.loc[~mask, 'no_renew_nextpd'] = float('nan')
     lcs['no_renew_nextpd'] = lcs['no_renew_nextpd']\
                                 .astype(bool)
 

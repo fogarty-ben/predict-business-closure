@@ -54,6 +54,12 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         training_splits[i], testing_splits[i] = generate_features(training_splits[i],
                                                                   testing_splits[i],
                                                                   **features)
+
+        print('_' * 20 + '\nTesting set #{}\n'.format(i + 1) + '_' * 20)
+        print('no_renew_nextpd baseline: {}'.format(np.mean(training_splits[i].no_renew_nextpd)))
+        print('number of observations: {}'.format(len(training_splits[i])))
+
+    print(list(training_splits[-1].columns))
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
@@ -64,10 +70,11 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         pred_probs = predict_probs(trained_classifiers, testing_splits)
         if save_preds:
             for i, prediction in enumerate(pred_probs):
-                testing_splits[i]['pred_probs'] = prediction
+                testing_splits[i]['pred_class_10%'] = pl.predict_target_class(pred_probs[i], 0.1, 
+                                                                           seed=seed)
                 testing_splits[i].to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
                               index=False)
-                testing_splits[i] = testing_splits[i].drop('pred_probs', axis=1)
+                testing_splits[i] = testing_splits[i].drop('pred_class_10%', axis=1)
         print('\n')
         if save_figs:
             evaluate_classifiers(pred_probs, testing_splits, seed, model_name,
