@@ -64,4 +64,8 @@
                 "ssa",
                 "pct_revoked",
                 "pct_canceled",
-                "pct_cndtl_approval"]}
+                "pct_cndtl_approval",
+                "time_period",
+                "census_tract",
+                "zip_code",
+                "police_district", "precinct", "ward"]}
