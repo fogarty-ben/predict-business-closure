@@ -40,7 +40,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         df = pickle.load(open(dataset, "rb" ))
 
     print('Generating training/testing splits...')
-    training_splits, testing_splits = pl.create_temporal_splits(data=df, time_period_col='time_period')
+    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, gap={'years': 2})
 
 
     print('Preprocessing data and generating features...')
