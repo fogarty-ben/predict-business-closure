@@ -2,11 +2,6 @@
    {
       "model":"svc",
       "penalty": "l2",
-      "C" : 0.001
-   }
-   {
-      "model":"svc",
-      "penalty": "l2",
       "C" :0.01
 
    }
