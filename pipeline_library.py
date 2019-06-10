@@ -825,27 +825,52 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
 
     return fig
 
-def create_temporal_splits(data, time_period_col):
+def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None):
     '''
     Splits into different sets by time intervals.
-
     Inputs:
-    data (pandas dataframe): the full dataset to split
-    time_period_col (col name): name of the column containing time periods
-    
+    df (pandas dataframe): the full dataset to split
+    date_col (str): the name of the column in the dataframe containing the date
+        attribute to split on
+    time_length (dictionary): specifies the time length of each split, with
+        strings of units of time (i.e. hours, days, months, years, etc.) as keys
+        and integers as values; for example 6 months would be {'months': 6}
+    gap (dictionary): optional length of time to leave between the end of the
+        training set and the beginning of the test set, specified as a dictionary
+        with string units of time as keys and integers as values
+    start_date (str): the first date to include in a testing split; value should
+        be in the form "yyyy-mm-dd", if blank the first date in a training set
+        will be the first date in the data set plus the value of time_length
     Returns: tuple of list of pandas dataframes, the first of which contains
         test sets and the second of which contains training sets
     '''
-    training_splits = []
-    testing_splits = []
-    max_timepd = int(max(data[time_period_col]))
-    for i in range(max_timepd - 2):
-        training_mask = data[time_period_col] <= i
-        testing_mask = data[time_period_col] == i + 2
-        training_splits.append(data[training_mask])
-        testing_splits.append(data[testing_mask])
+    time_length = relativedelta.relativedelta(**time_length)
 
-    return training_splits, testing_splits
+    if gap:
+        gap = relativedelta.relativedelta(**gap)
+    else:
+        gap = relativedelta.relativedelta()
+    if start_date:
+        start_date = pd.to_datetime(start_date, format='yyyy-mm-dd')
+        df = df[df[date_col] > start_date]
+    else:
+        start_date = min(df[date_col]) + time_length
+
+    test_splits = []
+    train_splits = []
+    max_date = max(df[date_col])
+    i = 0
+    while start_date + (i * time_length) < max_date:
+        test_start = start_date + (i * time_length)
+        test_end = (start_date + ((i + 1) * time_length))
+        lo_test_mask = test_start <= df[date_col]
+        up_test_mask = df[date_col] < test_end
+        train_mask = df[date_col] < (test_start - gap)
+        test_splits.append(df[lo_test_mask & up_test_mask])
+        train_splits.append(df[train_mask])
+        i += 1
+
+    return train_splits, test_splits
 
 def get_feature_importance(X_train, clf, model):
     '''
