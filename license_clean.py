@@ -159,7 +159,7 @@ def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
 
         i += 1
 
-    transformed_df['no_renew_nextpd'] = transformed_df.max_exp_date < transformed_df.pred_date.apply(lambda x: x + bucket_size)
+    transformed_df['no_renew_nextpd'] = transformed_df.max_exp_date < transformed_df.pred_date.apply(lambda x: x + relativedelta(years=2))
 
     return transformed_df
 
