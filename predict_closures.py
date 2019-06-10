@@ -52,33 +52,35 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         print('no_renew_nextpd baseline: {}'.format(np.mean(testing_splits[i].no_renew_nextpd)))
         print('number of observations: {}'.format(len(testing_splits[i])))
 
-    for i in range(len(models)):
-        model = models[i]
-        print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
-        print('Start time: {}\n'.format(datetime.datetime.now()))
-        model_name = model.get('name', 'model-{}'.format(i + 1))
-        trained_classifiers = train_classifiers(model, training_splits)
-        print('\n')
-        pred_probs = predict_probs(trained_classifiers, testing_splits)
-        if save_preds:
-            for i, prediction in enumerate(pred_probs):
-                testing_splits[i]['pred_class_10%'] = pl.predict_target_class(pred_probs[i], 0.1, 
-                                                                           seed=seed)
-                testing_splits[i].to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
-                              index=False)
-                testing_splits[i] = testing_splits[i].drop('pred_class_10%', axis=1)
-        print('\n')
-        if save_figs:
-            eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed,
-                                            model_name, fig_prefix=model_name)
-        else:
-            eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed, 
-                                            model_name)
-        print(eval_tbl.to_string())
-        if save_eval:
-            eval_tbl.to_csv(model_name + '_set-{}_eval.csv'.format(i + 1))
+    return training_splits[-1]
 
-        print('\nEnd time: {}'.format(datetime.datetime.now()))
+    # for i in range(len(models)):
+    #     model = models[i]
+    #     print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
+    #     print('Start time: {}\n'.format(datetime.datetime.now()))
+    #     model_name = model.get('name', 'model-{}'.format(i + 1))
+    #     trained_classifiers = train_classifiers(model, training_splits)
+    #     print('\n')
+    #     pred_probs = predict_probs(trained_classifiers, testing_splits)
+    #     if save_preds:
+    #         for i, prediction in enumerate(pred_probs):
+    #             testing_splits[i]['pred_class_10%'] = pl.predict_target_class(pred_probs[i], 0.1, 
+    #                                                                        seed=seed)
+    #             testing_splits[i].to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
+    #                           index=False)
+    #             testing_splits[i] = testing_splits[i].drop('pred_class_10%', axis=1)
+    #     print('\n')
+    #     if save_figs:
+    #         eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed,
+    #                                         model_name, fig_prefix=model_name)
+    #     else:
+    #         eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed, 
+    #                                         model_name)
+    #     print(eval_tbl.to_string())
+    #     if save_eval:
+    #         eval_tbl.to_csv(model_name + '_set-{}_eval.csv'.format(i + 1))
+
+    #     print('\nEnd time: {}'.format(datetime.datetime.now()))
 
 def transform_data(df):
     '''
@@ -394,6 +396,7 @@ if __name__ == '__main__':
     parser.add_argument('--saveeval', dest='save_eval',
                         required=False, action='store_true',
                         help='Save evaluations to file')
-
+    args = parser.parse_args()
+    
     data, preprocess, features, models, seed, save_figs, save_preds, save_eval = parse_args(vars(args))
     apply_pipeline(preprocess, features, models, data, seed, save_figs, save_preds, save_eval)
