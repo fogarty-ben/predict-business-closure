@@ -39,8 +39,6 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, gap={'years': 2}, start_date="2006-01-01", end_date='2016-01-01')
 
-    print(0 in training_splits[-1].columns)
-
     print('Preprocessing data and generating features...')
     for i in range(len(training_splits)):
         training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
@@ -317,7 +315,8 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
             pl.evaluate_classifier(pred_probs[i], y_actual,\
             [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], seed=seed,
             model_name=model_name,
-            dataset_name='Training/Testing Set # {}'.format(i + 1))
+            dataset_name='Training/Testing Set # {}'.format(i + 1),
+            tie_breaker='pessimistic')
         if fig_prefix is not None:
             plt.savefig(fig_prefix + '_dataset' + str(i + 1) + '.png')
             plt.close()
