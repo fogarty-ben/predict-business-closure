@@ -1,9 +1,6 @@
 '''
-Predicting Donors Choose Funding
+Predicting Business Closures
 
-Ben Fogarty
-
-2 May 2019
 '''
 
 import argparse
@@ -15,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
 
-import license_clean
+import load_data
 import pipeline_library as pl
 
 def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
@@ -35,7 +32,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     '''
     ## Optional overide if dataset is specified?
     if dataset is None:
-        df = license_clean.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
+        df = load_data.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
         df = pickle.load(open(dataset, "rb" ))
 
