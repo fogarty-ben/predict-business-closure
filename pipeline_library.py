@@ -302,7 +302,8 @@ def preprocess_data(df, methods=None, manual_vals=None):
                               manual_val=manual_vals.get(x.name, None)),
                               axis=0)
     df = df.drop(to_process, axis=1)
-    return pd.concat([df, processed_cols, missing], axis=1)
+    return pd.concat([df, processed_cols, missing], axis=1)\
+             .drop(0, axis=1)
 
 def cut_binary(series, threshold, or_equal_to=False):
     '''
@@ -825,7 +826,8 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
 
     return fig
 
-def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None):
+def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None,
+                           end_date=None):
     '''
     Splits into different sets by time intervals.
     Inputs:
@@ -841,32 +843,36 @@ def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None)
     start_date (str): the first date to include in a testing split; value should
         be in the form "yyyy-mm-dd", if blank the first date in a training set
         will be the first date in the data set plus the value of time_length
+    end_date (str): the final date to include in a testing split; value should
+        be in the form "yyyy-mm-dd", if blank the first date in a training set
+        will be the first date in the data set plus the value of time_length
     Returns: tuple of list of pandas dataframes, the first of which contains
         test sets and the second of which contains training sets
     '''
-    time_length = relativedelta.relativedelta(**time_length)
+    time_length = relativedelta(**time_length)
 
     if gap:
-        gap = relativedelta.relativedelta(**gap)
+        gap = relativedelta(**gap)
     else:
-        gap = relativedelta.relativedelta()
+        gap = relativedelta()
     if start_date:
-        start_date = pd.to_datetime(start_date, format='yyyy-mm-dd')
-        df = df[df[date_col] > start_date]
+        start_date = pd.to_datetime(start_date)
     else:
         start_date = min(df[date_col]) + time_length
+    if end_date:
+        end_date = pd.to_datetime(end_date)
+    else:
+        end_date = max(df[date_col].apply(lambda x: x - gap))
+
 
     test_splits = []
     train_splits = []
-    max_date = max(df[date_col])
     i = 0
-    while start_date + (i * time_length) < max_date:
-        test_start = start_date + (i * time_length)
-        test_end = (start_date + ((i + 1) * time_length))
-        lo_test_mask = test_start <= df[date_col]
-        up_test_mask = df[date_col] < test_end
-        train_mask = df[date_col] < (test_start - gap)
-        test_splits.append(df[lo_test_mask & up_test_mask])
+    while start_date + (i * time_length) <= end_date:
+        test_date = start_date + (i * time_length)
+        test_mask = df[date_col] == test_date
+        train_mask = df[date_col] <= (test_date - gap)
+        test_splits.append(df[test_mask])
         train_splits.append(df[train_mask])
         i += 1
 

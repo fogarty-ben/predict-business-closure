@@ -17,7 +17,7 @@ from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-MAX_REQS = 10000
+MAX_REQS = 10000000000
 TOKENS_FILEPATH = 'tokens.json'
 ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
 UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
@@ -44,11 +44,10 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = clean_lcs(lcs)
 
     print('Changing unit of analysis...')
-    lcs = change_unit_analysis(lcs, {'years': 2}, '2002-01-01' )
+    lcs = change_unit_analysis(lcs, {'years': 1}, '2002-01-01' )
 
     #### add geographies ####
     print('Creating geospatial properties...')
-    lcs = lcs.reset_index()
     lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')  
     
     # add census tracts
@@ -146,6 +145,7 @@ def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
     i = 0
     while  start_date + i * bucket_size <= stop_date:
         pred_date = start_date + i * bucket_size 
+        print(pred_date)
         start_mask = lcs.min_start_date < pred_date
         end_mask = pred_date < lcs.max_exp_date
         future_mask = lcs.license_start_date < pred_date

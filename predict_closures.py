@@ -40,8 +40,9 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         df = pickle.load(open(dataset, "rb" ))
 
     print('Generating training/testing splits...')
-    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, gap={'years': 2})
+    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, gap={'years': 2}, start_date="2006-01-01", end_date='2016-01-01')
 
+    print(0 in training_splits[-1].columns)
 
     print('Preprocessing data and generating features...')
     for i in range(len(training_splits)):
@@ -55,6 +56,9 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         print('_' * 20 + '\nTesting set #{}\n'.format(i + 1) + '_' * 20)
         print('no_renew_nextpd baseline: {}'.format(np.mean(testing_splits[i].no_renew_nextpd)))
         print('number of observations: {}'.format(len(testing_splits[i])))
+
+    return training_splits[-1]
+    '''
 
     for i in range(len(models)):
         model = models[i]
@@ -83,6 +87,7 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
             eval_tbl.to_csv(model_name + '_set-{}_eval.csv'.format(i + 1))
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
+        '''
 
 def transform_data(df):
     '''
@@ -175,7 +180,6 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         training.loc[:, str(col) + '_n_occur'] = pl.generate_n_occurences(training[col])
         testing.loc[:, str(col) + '_n_occur'] = pl.generate_n_occurences(testing[col],
                                                              addl_obs=training[col])
-
     for col in scale_cols:
         max_training = max(training[col])
         min_training = min(training[col])
