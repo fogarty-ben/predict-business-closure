@@ -5,7 +5,7 @@ import pandas as pd
 from shapely.geometry import shape
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
-from datetime import timedelta
+from datetime import timedelta, datetime
 import pickle
 import json
 import shapely
@@ -17,7 +17,7 @@ from link_datasets import *
 
 pd.options.display.max_columns = 999
 
-MAX_REQS = 1000000000
+MAX_REQS = 10000
 TOKENS_FILEPATH = 'tokens.json'
 ZILLOW_FILEPATH = 'data/ZLW_Zip_MedianValuePerSqft_AllHomes.csv'
 UMP_FILEPATH = 'data/Chicago_unemp_2001-2018.xlsx'
@@ -44,27 +44,12 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = clean_lcs(lcs)
 
     print('Changing unit of analysis...')
-    lcs = create_time_buckets(lcs, {'years': 2}, 'license_start_date',
-                                       '2002-01-01', "2017-12-31") #parameterize?; need to deal with missing start date before here (apprx. 9863)
-    lcs = collapse_licenses(lcs)
-
-    print('Generating outcome variable...')
-    lcs = add_outcome_variable(lcs)
-
-    # if we do this, this is where to drop records with latest expiration date
-    # during period
-    lcs = lcs.loc[lcs.max_expiration_date > lcs.bucket_end,:]
+    lcs = change_unit_analysis(lcs, {'years': 2}, '2002-01-01' )
 
     #### add geographies ####
     print('Creating geospatial properties...')
     lcs = lcs.reset_index()
     lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')  
-
-    # # add zillow neighborhoods
-    # print('Linking Zillow Neighborhoods...')
-    # nbh = gpd.read_file(ZILLOW_GEO)
-    # nbh = nbh[nbh.City == 'Chicago'].drop(columns=['State', 'County', 'City']) 
-    # lcs = add_geography_id(lcs, nbh) #issue here
     
     # add census tracts
     print('Linking census tracts...')
@@ -120,7 +105,7 @@ def obtain_lcs(tokens):
     lcs = pd.DataFrame.from_records(results)
     return lcs
 
-def create_time_buckets(lcs, bucket_size, date_col, start_date=None, end_date=None):
+def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
     '''
     Labels each license with a time period. Time periods are defined by the
     bucket size and start date arguments and cut based on the date_col
@@ -133,7 +118,7 @@ def create_time_buckets(lcs, bucket_size, date_col, start_date=None, end_date=No
     date_col (col name): the column containg the date to split time periods on
     start_date (str): first day to include in a bucket, string of the form
         YYYY-MM-DD or YYYYMMDD
-    end_date (str): last day to include in a bucket, string of the form
+    stop_date (str): the last prediction day to include in a bucket, string of the form
         YYYY-MM-DD or YYYYMMDD
 
     Returns: tuple of pandas dataframe, list of bucket starting dates
@@ -141,30 +126,44 @@ def create_time_buckets(lcs, bucket_size, date_col, start_date=None, end_date=No
     Stray setting with copy warning here
     '''
     if not start_date:
-        start_date = min(lcs[date_col])
-    if end_date is not None:
-        end_date = pd.to_datetime(end_date)
-        lcs = lcs[lcs[date_col] <= end_date]
-    if not pd.core.dtypes.common.is_datetime_or_timedelta_dtype(lcs[date_col]):
-        lcs.loc[:, date_col] = pd.to_datetime(lcs[date_col])
+        start_date = min(lcs.license_start_date)
+    if not stop_date:
+        stop_date = max(lcs.expiration_date)
 
 
     start_date = pd.to_datetime(start_date)
+    stop_date = pd.to_datetime(stop_date)
     bucket_size = relativedelta(**bucket_size)
-    lcs.loc[:, 'time_period'] = float('nan')
+    
+    transformed_df = pd.DataFrame()
+    lcs['min_start_date'] = lcs.groupby(['account_number', 'site_number'])\
+                               .license_start_date\
+                               .transform(min)
+    lcs['max_exp_date'] = lcs.groupby(['account_number', 'site_number'])\
+                               .expiration_date\
+                               .transform(max)
 
     i = 0
-    stop_date = max(lcs[date_col])
     while  start_date + i * bucket_size <= stop_date:
-        start_mask = start_date + i * bucket_size <= lcs[date_col]
-        end_mask = lcs[date_col] < start_date + (i + 1) * bucket_size
-        lcs.loc[start_mask & end_mask, 'time_period'] = i
-        lcs.loc[start_mask & end_mask, 'bucket_end'] = start_date + (i + 1) * bucket_size
+        pred_date = start_date + i * bucket_size 
+        start_mask = lcs.min_start_date < pred_date
+        end_mask = pred_date < lcs.max_exp_date
+        future_mask = lcs.license_start_date < pred_date
+        modified_mask = lcs.license_status_change_date < pred_date
+        mask = start_mask & end_mask & future_mask & (modified_mask | lcs.license_status_change_date.isna())
+        eligible_lcs = lcs.loc[mask, :].copy()
+        eligible_lcs['pred_date'] = pred_date
+        eligible_lcs = collapse_licenses(eligible_lcs, bucket_size).reset_index()
+        transformed_df = transformed_df.append(eligible_lcs, ignore_index=True, sort=True)
+        
+
         i += 1
 
-    return lcs[lcs.time_period.notna()]
+    transformed_df['no_renew_nextpd'] = transformed_df.max_exp_date < transformed_df.pred_date.apply(lambda x: x + bucket_size)
 
-def collapse_licenses(lcs):
+    return transformed_df
+
+def collapse_licenses(lcs, time_gap):
     '''
     Collapses all the licenses associated with a given accountid-siteid based on
     their time period so that each row represents one accountid-siteid-time
@@ -172,18 +171,19 @@ def collapse_licenses(lcs):
 
     Inputs:
     lcs (pandas dataframe): a license dataset
+    time_gap (dictionary): defines the size of each bucket, valid key-value
+        pairs are parameters for a dateutil.relativedelta.relativedelta object
 
     Returns: pandas dataframe
     '''
-    lcs['rev_or_rea'] = (lcs.license_status == 'REV') | (lcs.license_status == 'REA')
-    lcs['canceled'] = lcs.license_status == 'AAC'
-    lcs['conditional_tf'] = lcs.conditional_approval == 'Y'
-    lcs_collapse = lcs.groupby(['account_number', 'site_number', 'time_period'])\
+    lcs.loc[:, 'rev_or_rea'] = (lcs.license_status == 'REV') | (lcs.license_status == 'REA')
+    lcs.loc[:, 'canceled'] = lcs.license_status == 'AAC'
+    lcs.loc[:, 'conditional_tf'] = lcs.conditional_approval == 'Y'
+    lcs_collapse = lcs.groupby(['account_number', 'site_number'])\
                       .agg({"license_id": 'count',
                             "legal_name": "first",
                             "doing_business_as_name": 'first',
                             "license_start_date": ["min", "max"],
-                            "expiration_date": "max",
                             "application_type": set,
                             "license_code": set,
                             "license_description": set,
@@ -204,16 +204,16 @@ def collapse_licenses(lcs):
                             "ward": "first",
                             "ward_precinct": "first",
                             "ssa": "first",
-                            "bucket_end": "first"})
+                            "pred_date": "first",
+                            "max_exp_date": "first"})
     multi_index = lcs_collapse.columns.to_list()
     ind = pd.Index(["_".join(entry) for entry in multi_index])
     lcs_collapse.columns = ind
     lcs_collapse = lcs_collapse.rename({"license_id_count": 'n_licenses',
                                         "legal_name_first": 'legal_name',
                                         "doing_business_as_name_first": 'doing_business_as_name',
-                                        'license_start_date_min': 'min_start_date',
-                                        'license_start_date_max': 'max_start_date',
-                                        'expiration_date_max': 'max_expiration_date',
+                                        'license_start_date_min': 'oldest_lcs_start',
+                                        'license_start_date_max': 'newest_lcs_start',
                                         'application_type_set': 'application_types',
                                         "license_code_set": "license_codes",
                                         "license_description_set": "license_descriptions",
@@ -234,7 +234,8 @@ def collapse_licenses(lcs):
                                         "ward_first": "ward",
                                         "ward_precinct_first": "ward_precinct",
                                         "ssa_first": "ssa",
-                                        "bucket_end_first": "bucket_end"},
+                                        "pred_date_first": "pred_date",
+                                        "max_exp_date_first": "max_exp_date"},
                                         axis=1)
 
     return lcs_collapse
@@ -341,7 +342,7 @@ def add_census_tracts(lcs):
     tracts10['the_geom'] = tracts10.the_geom\
                                        .apply(shapely.geometry.shape)
     tracts10 = gpd.GeoDataFrame(tracts10, geometry='the_geom')
-    lcs_10 = add_geography_id(lcs[lcs.min_start_date >= parser.parse('2010-01-01')],
+    lcs_10 = add_geography_id(lcs[lcs.pred_date >= parser.parse('2010-01-01')],
                               tracts10)
     lcs_10.rename(columns={'tractce10':'census_tract'}, inplace=True) 
 
@@ -351,7 +352,7 @@ def add_census_tracts(lcs):
     tracts00['the_geom'] = tracts00.the_geom\
                                        .apply(shapely.geometry.shape)
     tracts00 = gpd.GeoDataFrame(tracts00, geometry='the_geom')
-    lcs_00 = add_geography_id(lcs[lcs.min_start_date < parser.parse('2010-01-01')], 
+    lcs_00 = add_geography_id(lcs[lcs.pred_date < parser.parse('2010-01-01')], 
                               tracts00)
     lcs_00.rename(columns={'census_tra':'census_tract'}, inplace=True) 
 

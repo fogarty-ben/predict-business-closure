@@ -12,18 +12,12 @@ def link_zbp_licenses(zbp, licenses):
 
     Returns: pandas dataframe
     '''
-    #may need to subtract one year based on when data is from
-    zbp['year_as_date'] = pd.to_datetime(zbp.year.astype(str), format='%Y')
-    zbp= license_clean.create_time_buckets(zbp, {'years': 2}, 'year_as_date',
-                                            '2002-01-01')
-    zbp = zbp.drop(['year_as_date', 'year'], axis=1)
-    zbp = zbp.groupby(['zipcode', 'time_period'])\
-             .agg('mean')\
-             .reset_index()
+    licenses['year'] = licenses['pred_date'].dt.to_period('Y') - 1
     
-    zbp['merge_col'] = zbp.time_period.astype(str) + '-' + zbp.zipcode.astype(str)
-    zbp = zbp.drop('time_period', axis=1)
-    licenses['merge_col'] = licenses.time_period.astype(str) + '-' + licenses.zip_code.astype(str)
+    zbp['merge_col'] = zbp.year.astype(str) + '-' + zbp.zipcode.astype(str)
+    zbp = zbp.drop('year', axis=1)
+    licenses['merge_col'] = licenses.year.astype(str) + '-' + licenses.zip_code.astype(str)
+    licenses = licenses.drop('year', axis=1)
 
     return pd.merge(licenses, zbp, how='left', on='merge_col').drop(['merge_col', 'zipcode'],
                                                                     axis=1)
@@ -42,23 +36,19 @@ def link_census_licenses(census_2000, census_2010, licenses):
 
     Returns: pandas dataframe
     '''
-    period_startyr_map = licenses.groupby('time_period')\
-                                 .agg({'min_start_date': 'min'})\
-                                 ['min_start_date']\
-                                 .dt.year
-    licenses['period_startyr'] = licenses.time_period\
-                                         .map(period_startyr_map)
+    licenses['year'] = licenses['pred_date'].dt.to_period('Y') - 1
 
-    pre_2010_lcs_mask = licenses.period_startyr < 2010
+
+    pre_2010_lcs_mask = licenses.year < 2010
     pre_2010 = pd.merge(licenses[pre_2010_lcs_mask], census_2000, how='left',
                         left_on='census_tract', right_on='tract')
 
-    post_2010_lcs_mask = licenses.period_startyr >= 2010
+    post_2010_lcs_mask = licenses.year > 2010
     post_2010 = pd.merge(licenses[post_2010_lcs_mask], census_2010, how='left',
                          left_on='census_tract', right_on='tract')
 
     return pre_2010.append(post_2010, ignore_index=True)\
-                   .drop('period_startyr', axis=1)
+                   .drop('year', axis=1)
 
 def link_cta_licenses(cta, licenses, months):
     '''
@@ -74,7 +64,7 @@ def link_cta_licenses(cta, licenses, months):
 
     Returns: pandas dataframe
     '''
-    licenses['exp_month_year'] = licenses['bucket_end'].dt.to_period('M')
+    licenses['pred_month_year'] = licenses['pred_date'].dt.to_period('M')
 
     cta = cta.groupby('Wards')\
              [['month_year', 'monthtotal', 'avg_weekday_rides']]\
@@ -88,10 +78,10 @@ def link_cta_licenses(cta, licenses, months):
     cta['merge_col'] = cta['Wards'].astype(str) + '_' + cta.month_year.astype(str)
 
     licenses['merge_col'] = (licenses['ward'].astype(str) + '_' +
-                             licenses.exp_month_year.astype(str))
+                             licenses.pred_month_year.astype(str))
 
     return pd.merge(licenses, cta, how='left', on='merge_col')\
-             .drop(['month_year', 'exp_month_year', 'merge_col', 'Wards'], axis=1)
+             .drop(['month_year', 'pred_month_year', 'merge_col', 'Wards'], axis=1)
 
 def link_real_estate_licenses(real_estate, licenses, months):
     '''
@@ -106,7 +96,7 @@ def link_real_estate_licenses(real_estate, licenses, months):
 
     Returns: pandas dataframe
     '''
-    licenses['exp_month_year'] = licenses['max_expiration_date'].dt.to_period('M')
+    licenses['pred_month_year'] = licenses['pred_date'].dt.to_period('M')
 
     real_estate = real_estate.groupby('RegionName')\
                              [['Month', 'MedianValuePerSqfeet_Zip']]\
@@ -118,10 +108,10 @@ def link_real_estate_licenses(real_estate, licenses, months):
     real_estate['merge_col'] = real_estate['RegionName'].astype(str) + '_' + real_estate.Month.astype(str)
 
     licenses['merge_col'] = (licenses['zip_code'].astype(str) + '_' +
-                             licenses.exp_month_year.astype(str))
+                             licenses.pred_month_year.astype(str))
 
     return pd.merge(licenses, real_estate, how='left', on='merge_col')\
-             .drop(['exp_month_year', 'merge_col', 'RegionName', 'Month'], axis=1)
+             .drop(['pred_month_year', 'merge_col', 'RegionName', 'Month'], axis=1)
 
 def link_gdp_licenses(gdp, licenses):
     '''
@@ -131,15 +121,10 @@ def link_gdp_licenses(gdp, licenses):
     gdp (pandas dataframe): a set of gdp data
     licenses (pandas dataframe): a set of business licenses data
     '''
-    gdp['year_as_date'] = pd.to_datetime(gdp.Year.astype(str), format='%Y')
-    gdp = license_clean.create_time_buckets(gdp, {'years': 2}, 'year_as_date',
-                                            '2002-01-01')
-    gdp = gdp.drop(['year_as_date', 'Year', 'GDP_billion_dollars'], axis=1)
-    gdp = gdp.groupby(['time_period'])\
-             .agg('mean')
+    licenses['Year'] = licenses['pred_date'].dt.year - 1 
 
-
-    return pd.merge(licenses, gdp, how='left', on='time_period')
+    return pd.merge(licenses, gdp, how='left', on='Year')\
+             .drop('Year', axis=1)
 
 def link_ump_licenses(ump, licenses):
     '''
@@ -149,13 +134,8 @@ def link_ump_licenses(ump, licenses):
     ump (pandas dataframe): a set of gdp data
     licenses (pandas dataframe): a set of business licenses data
     '''
-    #GDP DATA PROBABLY NEEDS TO BE GDP GROWTH DATA
-    ump['year_as_date'] = pd.to_datetime(ump.Year.astype(str), format='%Y')
-    ump = license_clean.create_time_buckets(ump, {'years': 2}, 'year_as_date',
-                                            '2002-01-01')
-    ump = ump.drop(['year_as_date', 'Year'], axis=1)
-    ump = ump.groupby(['time_period'])\
-             .agg('mean')\
-             .rename({'Annual': 'umpavg_timepd'}, axis=1)
+    licenses['Year'] = licenses['pred_date'].dt.year - 1
 
-    return pd.merge(licenses, ump, how='left', on='time_period')
+    return pd.merge(licenses, ump, how='left', on='Year')\
+             .drop('Year', axis=1)\
+             .rename({'Annual': "unemployment_rate"}, axis=1)
