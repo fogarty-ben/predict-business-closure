@@ -18,11 +18,8 @@ import datetime
 import license_clean
 import pipeline_library as pl
 
-
-
-
 def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
-                   save_figs=False, save_preds=False):
+                   save_figs=False, save_preds=False, save_eval=False):
     '''
     Applies the pipeline library to predicting if a project on Donors Choose
     will not get full funding within 60 days.
@@ -76,13 +73,16 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                 testing_splits[i] = testing_splits[i].drop('pred_class_10%', axis=1)
         print('\n')
         if save_figs:
-            evaluate_classifiers(pred_probs, testing_splits, seed, model_name,
-                                 fig_prefix=model_name)
+            eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed,
+                                            model_name, fig_prefix=model_name)
         else:
-            evaluate_classifiers(pred_probs, testing_splits, seed, model_name)
+            eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed, 
+                                            model_name)
+        print(evl_tbl.to_string())
+        if save_eval:
+            eval_tbl.to_csv(model_name + '_set-{}_eval.csv'.format(i + 1))
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
-
 
 def transform_data(df):
     '''
@@ -326,7 +326,8 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
             plt.close()
         else:
             plt.show()
-    print(table.to_string())
+    
+    return table
 
 def parse_args(args):
     '''
@@ -370,7 +371,9 @@ def parse_args(args):
 
     save_preds = args.get('save_preds', False)
 
-    return dataset_fp, preprocess_specs, feature_specs, model_specs, seed, save_figs, save_preds
+    save_eval = args.get('save_eval', False)
+
+    return dataset_fp, preprocess_specs, feature_specs, model_specs, seed, save_figs, save_preds, save_eval
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=("Apply machine learning" +
@@ -392,7 +395,9 @@ if __name__ == '__main__':
     parser.add_argument('--savepreds', dest='save_preds',
                         required=False, action='store_true',
                         help='Save predictions to file')
-    args = parser.parse_args()
+    parser.add_argument('--saveeval', dest='save_eval',
+                        required=False, action='store_true',
+                        help='Save evaluations to file')
 
-    data, preprocess, features, models, seed, save_figs, save_preds = parse_args(vars(args))
-    apply_pipeline(preprocess, features, models, data, seed, save_figs, save_preds)
+    data, preprocess, features, models, seed, save_figs, save_preds, save_eval = parse_args(vars(args))
+    apply_pipeline(preprocess, features, models, data, seed, save_figs, save_preds, save_eval)
