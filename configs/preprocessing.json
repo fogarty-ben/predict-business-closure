@@ -26,7 +26,7 @@
              "Graduate or professional degree": "median",
              "MedianValuePerSqfeet_Zip": "median",
              "license_codes": "manual",
-             "umpavg_timepd": "median",
+             "unemployment_rate": "median",
              "GDP_growth": "median"},
  "manual_vals": {"avg_weekday_rides_last6": 0,
                  "monthavg_last6": 0,

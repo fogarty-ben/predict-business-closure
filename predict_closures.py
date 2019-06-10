@@ -57,9 +57,6 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         print('no_renew_nextpd baseline: {}'.format(np.mean(testing_splits[i].no_renew_nextpd)))
         print('number of observations: {}'.format(len(testing_splits[i])))
 
-    return training_splits[-1]
-    '''
-
     for i in range(len(models)):
         model = models[i]
         print('-' * 20 +  '\nModel Specifications\n' + str(model) + '\n' + '_' * 20)
@@ -82,12 +79,11 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         else:
             eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed, 
                                             model_name)
-        print(evl_tbl.to_string())
+        print(eval_tbl.to_string())
         if save_eval:
             eval_tbl.to_csv(model_name + '_set-{}_eval.csv'.format(i + 1))
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
-        '''
 
 def transform_data(df):
     '''

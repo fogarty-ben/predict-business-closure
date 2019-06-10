@@ -302,9 +302,8 @@ def preprocess_data(df, methods=None, manual_vals=None):
                               manual_val=manual_vals.get(x.name, None)),
                               axis=0)
     df = df.drop(to_process, axis=1)
-    return pd.concat([df, processed_cols, missing], axis=1)\
-             .drop(0, axis=1)
-
+    return pd.concat([df, processed_cols, missing], axis=1)
+    
 def cut_binary(series, threshold, or_equal_to=False):
     '''
     Cuts a continuous variable into a binary variable based on whether or not
