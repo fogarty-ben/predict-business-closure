@@ -4,12 +4,12 @@
       "penalty": "l2",
       "C" :0.01
 
-   }
+   },
    {
       "model":"svc",
       "penalty": "l2",
       "C" :0.1
-   }
+   },
    {
       "model":"svc",
       "penalty": "l2",

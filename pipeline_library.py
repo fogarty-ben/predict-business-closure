@@ -895,7 +895,7 @@ def get_feature_importance(X_train, clf, model):
     model_type = model['model']
     if model_type in ['rf', 'dt', 'boosting', 'bagging']:
         importances = list(zip(X_train.columns, clf.feature_importances_))
-    elif model_type in ['lr', 'svm']:
+    elif model_type in ['lr', 'svc']:
         importances = list(zip(X_train.columns, clf.coef_[0]))
     else:
         importances = None
