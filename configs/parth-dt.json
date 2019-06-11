@@ -1,0 +1,32 @@
+[
+  {
+    "model":"dt",
+    "max_depth":10, 
+    "min_samples_split": 100
+  },
+  {
+    "model":"dt",
+    "max_depth": 50,
+    "min_samples_split": 100
+  },
+  {
+    "model":"dt",
+    "max_depth": 100,
+    "min_samples_split": 100
+  },
+  {
+    "model":"dt",
+    "max_depth": 10,
+    "min_samples_split": 500
+  },
+  {
+    "model":"dt",
+    "max_depth": 50,
+    "min_samples_split": 500
+  },
+  {
+    "model":"dt",
+    "max_depth": 100,
+    "min_samples_split": 500
+  }
+]
