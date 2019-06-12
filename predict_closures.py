@@ -90,6 +90,8 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
 
+        return trained_classifiers
+
 def transform_data(df):
     '''
     Changes the types of columns in the dataset and creates new columns to
