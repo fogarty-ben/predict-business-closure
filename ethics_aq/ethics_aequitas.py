@@ -108,8 +108,9 @@ def run_aequitas(predictions_data_path):
 	gof = f.get_overall_fairness(fdf)
 	z = aqp.plot_fairness_group(fdf, group_metric='ppr')
 	plt.savefig('charts/fairness_overall.png')
-	fg = aqp.plot_fairness_group_all(fdf, ncols=5, metrics = "all")
-	plt.savefig('charts/fairness_metrics.png')
+	# Checking for False Omission Rate and False Negative Rates
+	fg = aqp.plot_fairness_group_all(fdf, metrics=['for','fnr'], ncols=2)
+	fg.savefig('charts/fairness_metrics.png')
 
 	return None
 
