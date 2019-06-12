@@ -12,7 +12,8 @@ This project's folder contains the following files:
 
 - pipeline_library.py: general functions for a machine learning pipeline (reading data, preprocessing data, generating features, building models, etc.)
 - predict_closures.py: specific functions for applying pipeline_library to the Chicago Business Licenses data
-- load_data.py: downloads and links all the necessary datasets for this analysis   
+- load_data.py: downloads and links all the necessary datasets for this analysis    
+
 
 - tokens.json: a json file containing Chicago Open Data Portal and US Census Bureau API tokens
 to allow for API access to these data sources; the provided file includes formats but not actual tokens for security reasons 
@@ -21,12 +22,14 @@ to allow for API access to these data sources; the provided file includes format
 - get_pickle_mac.sh: downloads pickled version of dataset from 10 June 2019 (Mac-specific)
 - getfiles_mac.sh: downloads csv files for datasets that could not be obtained through an
 API
-- mlproject-env.yml: Anaconda environment configuration file for running the project
+- mlproject-env.yml: Anaconda environment configuration file for running the project . 
 
-- configs/: contains json files specifying preprocessing, feature generation, and model specifications to be passed to the predict_closures program
+
+- configs/: contains json files specifying preprocessing, feature generation, and model specifications to be passed to the predict_closures program 
+
 
 - ethics_aq/: contains files related to the bias and fiarness report
--- ethics_aq/ethics_aequitas.py: code for producing the bias and fairness report
+- ethics_aq/ethics_aequitas.py: code for producing the bias and fairness report  
 
 
 
