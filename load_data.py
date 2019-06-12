@@ -1,3 +1,17 @@
+'''
+Functions to load, transform, and link data sources
+
+Ben Fogarty
+Parth Khare
+Aya Liu
+
+Harris School of Public Policy, University of Chicago
+CAPP 30254: Machine Learning for Public Policy
+Prof. Rayid Ghani
+
+12 June 2019
+'''
+
 import os
 import json
 import pickle
@@ -56,15 +70,12 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     print('Changing unit of analysis...')
     lcs = change_unit_analysis(lcs, {'years': 1}, '2002-01-01' )
 
-    #### add geographies ####
     print('Creating geospatial properties...')
     lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')  
     
-    # add census tracts
     print('Linking census tracts...')
     lcs = add_census_tracts(lcs)
 
-    # getting additional datasets
     print('Loading additional datasets...')
     try:
         census_2000 = get_2000_census_data(tokens)
@@ -273,7 +284,7 @@ def convert_lcs_dtypes(lcs):
                  'license_approved_for_issuance',
                  'date_issued',
                  'license_status_change_date']
-    lcs[lcs_dates] = lcs[lcs_dates].astype('datetime64')   
+    lcs[lcs_dates] = lcs[lcs_dates].astype('datetime64')
     lcs['latitude'] = lcs['latitude'].astype('float64')
     lcs['longitude'] = lcs['longitude'].astype('float64')
     return lcs
@@ -355,8 +366,8 @@ def add_census_tracts(lcs):
 
 def add_geography_id(gdf, b):
     '''
-    spatial join gdf with points (lat, long) with another geodataframe with
-    polygons (boundaries).
+    Add geography ID from boundaries file by matching points to polygons in the 
+    boundaries dataframe.
 
     Input: 
         gdf: geodataframe with points
@@ -420,6 +431,10 @@ def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
 def get_zbp_data(tokens):
     '''
     Temporary function to make merging code easier later.
+
+    Input:
+        tokens (dict): dictionary containing API key for chicago open data portal
+    Returns a pandas dataframe
     '''
     cook_county_code = '031'
     illinois_code = '17'
@@ -504,7 +519,7 @@ def process_2010_education(row):
 
     row (array like): the row to aggregate over
 
-    returns pandas series
+    Returns pandas series
     '''
     if row['Population 25 years and over']:
         row = row / row['Population 25 years and over']
@@ -516,7 +531,11 @@ def process_2010_education(row):
 
 def get_2000_census_data(tokens):
     '''
-    Temporary function to make merging code easier later
+    Temporary function to make merging code easier later.
+    
+    Input:
+        tokens (dict): dictionary containing API key for census bureau
+    Returns a pandas dataframe
     '''
     base_urls = {'sf1': 'https://api.census.gov/data/2000/sf1',
                  'sf3': 'https://api.census.gov/data/2000/sf3'}
@@ -620,6 +639,10 @@ def get_2000_census_data(tokens):
 def get_2010_census_data(tokens):
     '''
     Temporary function to make merging code easier later
+
+    Input:
+        tokens (dict): dictionary containing API key for census bureau
+    Returns a pandas dataframe
     '''
     acs_url = 'https://api.census.gov/data/2010/acs/acs5'
 
