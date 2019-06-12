@@ -22,10 +22,10 @@ to allow for API access to these data sources; the provided file includes format
 - get_pickle_mac.sh: downloads pickled version of dataset from 10 June 2019 (Mac-specific)
 - getfiles_mac.sh: downloads csv files for datasets that could not be obtained through an
 API
-- mlproject-env.yml: Anaconda environment configuration file for running the project . 
+- mlproject-env.yml: Anaconda environment configuration file for running the project  
 
 
-- configs/: contains json files specifying preprocessing, feature generation, and model specifications to be passed to the predict_closures program 
+- configs/: contains json files specifying preprocessing, feature generation, and model specifications to be passed to the predict_closures program  
 
 
 - ethics_aq/: contains files related to the bias and fiarness report
@@ -55,6 +55,5 @@ Helpful documentation and references are cited throughout the docstrings of the 
 
 To run the program, use the following command:
 ```
-python3 predict_closures.py -f <path to features config JSON file>
--m <path to models config JSON file> [-p <path to optional preprocessing config file>] [-d <path to pickled dataset>] [-s <optional random seed>] [--savefigs (denotes that figures should be saved instead of displayed)] [--savepreds (denotes that predictions from each testing set should be saved)] [--saveeval (denotes that evaluation tables should be saved)]
+python3 predict_closures.py -f <path to features config JSON file> -m <path to models config JSON file> [-p <path to optional preprocessing config file>] [-d <path to pickled dataset>] [-s <optional random seed>] [--savefigs (denotes that figures should be saved instead of displayed)] [--savepreds (denotes that predictions from each testing set should be saved)] [--saveeval (denotes that evaluation tables should be saved)]
 ```
