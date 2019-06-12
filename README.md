@@ -1,8 +1,8 @@
 # Predicting Chicago Business Closures
 
 Aya Liu, Ben Fogarty, Parth Khare  
-11 June 2019
-CAPP 30254: Machine Learning for Public Policy
+11 June 2019  
+CAPP 30254: Machine Learning for Public Policy  
 Harris School of Public Policy  
 
 ## Project overview & requirements
