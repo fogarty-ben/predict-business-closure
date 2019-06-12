@@ -1,22 +1,29 @@
 '''
-Machine Learning Pipeline
+Machine Learning Pipeline Functions
 
 Ben Fogarty
+Parth Khare
+Aya Liu
 
-30 May 2019
+Harris School of Public Policy, University of Chicago
+CAPP 30254: Machine Learning for Public Policy
+Prof. Rayid Ghani
+
+12 June 2019
 '''
 
-from copy import deepcopy
-from textwrap import wrap
 import json
 import random
+from copy import deepcopy
+from textwrap import wrap
 from dateutil.relativedelta import relativedelta
-from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
-import graphviz
-import pandas as pd
-import matplotlib.pyplot as plt
+
 import numpy as np
+import pandas as pd
+from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
+import matplotlib.pyplot as plt
 import seaborn as sns
+import graphviz
 
 def read_csv(filepath, cols=None, col_types=None, index_col=None):
     '''
@@ -829,22 +836,24 @@ def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None,
                            end_date=None):
     '''
     Splits into different sets by time intervals.
+    
     Inputs:
-    df (pandas dataframe): the full dataset to split
-    date_col (str): the name of the column in the dataframe containing the date
-        attribute to split on
-    time_length (dictionary): specifies the time length of each split, with
-        strings of units of time (i.e. hours, days, months, years, etc.) as keys
-        and integers as values; for example 6 months would be {'months': 6}
-    gap (dictionary): optional length of time to leave between the end of the
-        training set and the beginning of the test set, specified as a dictionary
-        with string units of time as keys and integers as values
-    start_date (str): the first date to include in a testing split; value should
-        be in the form "yyyy-mm-dd", if blank the first date in a training set
-        will be the first date in the data set plus the value of time_length
-    end_date (str): the final date to include in a testing split; value should
-        be in the form "yyyy-mm-dd", if blank the first date in a training set
-        will be the first date in the data set plus the value of time_length
+        df (pandas dataframe): the full dataset to split
+        date_col (str): the name of the column in the dataframe containing the date
+            attribute to split on
+        time_length (dictionary): specifies the time length of each split, with
+            strings of units of time (i.e. hours, days, months, years, etc.) as keys
+            and integers as values; for example 6 months would be {'months': 6}
+        gap (dictionary): optional length of time to leave between the end of the
+            training set and the beginning of the test set, specified as a dictionary
+            with string units of time as keys and integers as values
+        start_date (str): the first date to include in a testing split; value should
+            be in the form "yyyy-mm-dd", if blank the first date in a training set
+            will be the first date in the data set plus the value of time_length
+        end_date (str): the final date to include in a testing split; value should
+            be in the form "yyyy-mm-dd", if blank the first date in a training set
+            will be the first date in the data set plus the value of time_length
+
     Returns: tuple of list of pandas dataframes, the first of which contains
         test sets and the second of which contains training sets
     '''
@@ -879,18 +888,21 @@ def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None,
 
 def get_feature_importance(X_train, clf, model):
     '''
-    clf: a classfier object
-    model_type: model type abbreviation
+    Get feature importance from a model
+    Input:
+        X_train: training data (features only)
+        clf: a classfier object
+        model_type: classifier's model type abbreviation
+            'dt': sklearn.tree.DecisionTreeClassifier
+            'lr': sklearn.linear_model.LogisticRegression
+            'knn': sklearn.neighbors.KNeighborsClassifier
+            'svc': sklearn.svm.LinearSVC
+            'rf': sklearn.ensemble.RandomForestClassifier
+            'boosting': sklearn.ensemble.AdaBoostClassifier
+            'bagging': sklearn.ensemble.BaggingClassifier
+            'dummy': sklearn.dummy.DummyClassifier
 
-    'dt': sklearn.tree.DecisionTreeClassifier
-    'lr': sklearn.linear_model.LogisticRegression
-    'knn': sklearn.neighbors.KNeighborsClassifier
-    'svc': sklearn.svm.LinearSVC
-    'rf': sklearn.ensemble.RandomForestClassifier
-    'boosting': sklearn.ensemble.AdaBoostClassifier
-    'bagging': sklearn.ensemble.BaggingClassifier
-    'dummy': sklearn.dummy.DummyClassifier
-
+    Returns a pandas dataframe containing feature importance
     '''
     model_type = model['model']
     if model_type in ['rf', 'dt', 'boosting', 'bagging']:
@@ -907,9 +919,12 @@ def get_feature_importance(X_train, clf, model):
 
 def create_interactions(df, cols_to_interact):
     '''
-    Create feature interactions
-    Build case /default change type
-    Specify interaction
+    Create feature interactions.
+
+    Inputs:
+        df: a pandas dataframe
+        cols_to_interact: list of features to interact
+    Returns a pandas dataframe
     '''
     interaction = 'inter_' + ''.join(cols_to_interact)
     df[interaction] = df[cols_to_interact[0]].astype(int)
@@ -921,9 +936,12 @@ def create_interactions(df, cols_to_interact):
 
 def days_between(date, ref_date):
     '''
-    Difference in days with respect to a reference period; here: time buckets
-    Build case /default change type
-    Ensure that they are 
+    Difference in days with respect to a reference period
+    
+    Inputs:
+        date: a pandas series containing dates
+        ref_date: a pandas series containing dates for reference
+    Returns a pandas series 
     '''
     date = pd.to_datetime(date)
     ref_date = pd.to_datetime(ref_date)

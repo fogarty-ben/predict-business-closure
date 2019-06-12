@@ -27,8 +27,8 @@ import pipeline_library as pl
 def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                    save_figs=False, save_preds=False, save_eval=False):
     '''
-    Applies the pipeline library to predicting if a project on Donors Choose
-    will not get full funding within 60 days.
+    Applies the pipeline library to predicting if a licensed business on a 
+    prediction date will renew its license in the next two-year period.
 
     Inputs:
     dataset (str): path to the pickle file containing the training data
@@ -37,17 +37,19 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     seed (str): seed used for random process to adjucate ties when translating
         predicted probabilities to predicted classes given some percentile
         threshold
-    save_figs (bool): if true figures are saved instead of displayed
+    save_figs (bool): if true, figures are saved instead of displayed
+    save_preds (bool): if true, predictions on test sets are saved
+    save_eval (bool): if true, evaluation metrics are saved
     '''
-    ## Optional overide if dataset is specified?
     if dataset is None:
-        df = load_data.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
+        df = load_data.get_lcs_data()
     else:
         with open(dataset, 'rb') as file:
             df = pickle.load(file)
 
     print('Generating training/testing splits...')
-    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, gap={'years': 2}, start_date="2006-01-01", end_date='2016-01-01')
+    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, 
+                            gap={'years': 2}, start_date="2006-01-01", end_date='2016-01-01')
 
     print('Preprocessing data and generating features...')
     for i in range(len(training_splits)):
@@ -91,19 +93,6 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         print('\nEnd time: {}'.format(datetime.datetime.now()))
 
         return trained_classifiers
-
-def transform_data(df):
-    '''
-    Changes the types of columns in the dataset and creates new columns to
-    allow for better data exploration and modeling.
-
-    Inputs:
-    df (pandas dataframe): the dataset
-
-    Returns: pandas dataframe
-    '''
-
-    return df
 
 def preprocess_data(df, methods=None, manual_vals=None):
     '''
@@ -173,12 +162,7 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     Returns: tuple of pandas dataframe, the training and testing datasets after
         generating the features
     '''
-    '''
-    df = df.drop(['school_longitude', 'school_latitude', 'schoolid',
-                  'teacher_acctid', 'school_district', 'school_ncesid',
-                  'school_county'],
-                  axis=1)
-    '''
+
     for col in n_ocurr_cols:
         training.loc[:, str(col) + '_n_occur'] = pl.generate_n_occurences(training[col])
         testing.loc[:, str(col) + '_n_occur'] = pl.generate_n_occurences(testing[col],
@@ -189,7 +173,7 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         training.loc[:, col + '_scale'] = pl.scale_variable_minmax(training[col], a=max_training,
                                                                    b=min_training)
         testing.loc[:, col + '_scale'] = pl.scale_variable_minmax(testing[col], a=max_training,
-                                                       b=min_training)
+                                                                  b=min_training)
 
     for col, specs in bin_cols.items():
         training.loc[:, col], bin_edges = pl.cut_variable(training[col], **specs)
@@ -216,19 +200,19 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
         for missing_col in missing_testing_cols:
             testing[missing_col] = 0
 
-
-
     for start_col, end_col in duration_cols:
         training[start_col + '-' + end_col + "_duration"] = pl.days_between(training[start_col], 
-                                                                          training[end_col])
+                                                                            training[end_col])
         testing[start_col + '-' + end_col + "_duration"] = pl.days_between(testing[start_col],
-                                                                         testing[end_col])
+                                                                           testing[end_col])
         max_training = max(training[start_col + '-' + end_col + "_duration"])
         min_training = min(training[start_col + '-' + end_col + "_duration"])
-        training.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(training[start_col + '-' + end_col + "_duration"], a=max_training,
-                                                                   b=min_training)
-        testing.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(testing[start_col + '-' + end_col + "_duration"], a=max_training,
-                                                       b=min_training)
+        training.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(
+                                                                         training[start_col + '-' + end_col + "_duration"], 
+                                                                         a=max_training, b=min_training)
+        testing.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(
+                                                                        testing[start_col + '-' + end_col + "_duration"], 
+                                                                        a=max_training, b=min_training)
         training = training.drop(start_col + '-' + end_col + "_duration", axis=1)
         testing = testing.drop(start_col + '-' + end_col + "_duration", axis=1)
 
@@ -254,7 +238,7 @@ def train_classifiers(model, training):
     set).
 
     Inputs:
-    models (dict): specifications for the classifiers
+    model (dict): specifications for the classifiers
     training (list of pandas dataframe): a list of training datasets
 
     Returns: 2D list of trained sklearn classifiers
@@ -296,7 +280,6 @@ def predict_probs(trained_classifiers, testing_splits):
         features = testing_splits[i].drop('no_renew_nextpd', axis=1)
         pred_probs.append(pl.predict_target_probability(trained_classifiers[i],
                                                         features))
-
     return pred_probs
 
 def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
@@ -316,8 +299,10 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
         threshold
     model_name (str): model name to include in the title of the
         precision/recall curve graph
-    fig_name (str): prefix of file name to save the precision/recall curve in;
+    fig_prefix (str): prefix of file name to save the precision/recall curve in;
         if not specified the figure is displayed but not saved
+
+    Returns a pandas dataframe with evaluation metrics
     '''
     table = pd.DataFrame()
     for i in range(len(pred_probs)):
@@ -325,10 +310,10 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
         y_actual = testing_splits[i].no_renew_nextpd
         table['Test/Training Set {}'.format(i + 1)], fig =\
             pl.evaluate_classifier(pred_probs[i], y_actual,\
-            [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], seed=seed,
-            model_name=model_name,
-            dataset_name='Training/Testing Set # {}'.format(i + 1),
-            tie_breaker='pessimistic')
+                                   [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], seed=seed,
+                                   model_name=model_name,
+                                   dataset_name='Training/Testing Set # {}'.format(i + 1),
+                                   tie_breaker='pessimistic')
         if fig_prefix is not None:
             plt.savefig(fig_prefix + '_dataset' + str(i + 1) + '.png')
             plt.close()
@@ -354,10 +339,13 @@ def parse_args(args):
                        (optional)
         - 'save_pred': boolean for whether predictions should be output to csv
                        (optional)
+        - 'save_eval': boolean for whether evaluation metrics should be output 
+                       to csv (optional)
 
     Returns: 6-ple of filepath to dataset (str), pre-procesing specs (dict),
     feature generation specs (dict), model specs (list of dicts), seed (int),
-    whether or not to save figures (boolean)
+    whether or not to save figures (boolean), whether or not to save evaluation
+    metrics (boolean)
     '''
     dataset_fp = args['dataset']
 
@@ -382,6 +370,7 @@ def parse_args(args):
     save_eval = args.get('save_eval', False)
 
     return dataset_fp, preprocess_specs, feature_specs, model_specs, seed, save_figs, save_preds, save_eval
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=("Apply machine learning" +
