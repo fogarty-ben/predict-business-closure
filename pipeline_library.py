@@ -12,17 +12,18 @@ Prof. Rayid Ghani
 12 June 2019
 '''
 
-from copy import deepcopy
-from textwrap import wrap
 import json
 import random
+from copy import deepcopy
+from textwrap import wrap
 from dateutil.relativedelta import relativedelta
-from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
-import graphviz
-import pandas as pd
-import matplotlib.pyplot as plt
+
 import numpy as np
+import pandas as pd
+from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
+import matplotlib.pyplot as plt
 import seaborn as sns
+import graphviz
 
 def read_csv(filepath, cols=None, col_types=None, index_col=None):
     '''
