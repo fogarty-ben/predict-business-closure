@@ -1,6 +1,15 @@
 '''
 Predicting Business Closures
 
+Ben Fogarty
+Parth Khare
+Aya Liu
+
+Harris School of Public Policy, University of Chicago
+CAPP 30254: Machine Learning for Public Policy
+Prof. Rayid Ghani
+
+12 June 2019
 '''
 
 import argparse
@@ -34,7 +43,8 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
     if dataset is None:
         df = load_data.get_lcs_data() #parameterize for median homevalue/cta?, pass buckets?
     else:
-        df = pickle.load(open(dataset, "rb" ))
+        with open(dataset, 'rb') as file:
+            df = pickle.load(file)
 
     print('Generating training/testing splits...')
     training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, gap={'years': 2}, start_date="2006-01-01", end_date='2016-01-01')
