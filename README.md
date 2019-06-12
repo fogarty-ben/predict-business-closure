@@ -13,6 +13,8 @@ This project's folder contains the following files:
 - predict_closures.py: specific functions for applying pipeline_library to the Chicago Business Licenses data
 - load_data.py: downloads and links all the necessary datasets for this analysis   
 
+- tokens.json: a json file containing Chicago Open Data Portal and US Census Bureau API tokens
+to allow for API access to these data sources; the provided file includes formats but not actual tokens for security reasons 
 - data_exploration.ipynb: contains code demonstrating basic data exploration
 - get_pickle.sh: downloads pickled version of dataset from 10 June 2019 (Linux-specific)
 - get_pickle_mac.sh: downloads pickled version of dataset from 10 June 2019 (Mac-specific)
