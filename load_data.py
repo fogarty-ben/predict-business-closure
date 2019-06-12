@@ -531,11 +531,12 @@ def process_2010_education(row):
 
 def get_2000_census_data(tokens):
     '''
-    Temporary function to make merging code easier later.
-    
-    Input:
-        tokens (dict): dictionary containing API key for census bureau
-    Returns a pandas dataframe
+    Downloads data from the 2000 decennial census.
+
+    Inputs:
+    tokens (dictionary): a dictionary of API keys
+
+    Returns: pandas dataframe
     '''
     base_urls = {'sf1': 'https://api.census.gov/data/2000/sf1',
                  'sf3': 'https://api.census.gov/data/2000/sf3'}
@@ -638,11 +639,12 @@ def get_2000_census_data(tokens):
     
 def get_2010_census_data(tokens):
     '''
-    Temporary function to make merging code easier later
+    Downloads data from the 2010 decennial census.
 
-    Input:
-        tokens (dict): dictionary containing API key for census bureau
-    Returns a pandas dataframe
+    Inputs:
+    tokens (dictionary): a dictionary of API keys
+
+    Returns: pandas dataframe
     '''
     acs_url = 'https://api.census.gov/data/2010/acs/acs5'
 
@@ -715,7 +717,7 @@ def get_2010_census_data(tokens):
 # Load CTA ridership data
 def get_rides(tokens):
     '''
-    Obtain and aggregate CTA monhtly ridership at ward level.
+    Obtain and aggregate CTA monthly ridership at ward level.
 
     Input: 
         tokens (dict): dictionary containing API key for chicago data portal

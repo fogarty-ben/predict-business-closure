@@ -126,7 +126,7 @@ def pw_correlate(df, variables=None, visualize=False):
         variables = [col for col in df.columns
                      if pd.api.types.is_numeric_dtype(df[col])]
 
-    corr_table = np.corrcoef(df[variables].dropna(), rowvar=False)
+    corr_table = np.corrcoef(df[variables].dropna().astype(float), rowvar=False)
     corr_table = pd.DataFrame(corr_table, index=variables, columns=variables)
 
     if visualize:
