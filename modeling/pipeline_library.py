@@ -20,7 +20,8 @@ from dateutil.relativedelta import relativedelta
 
 import numpy as np
 import pandas as pd
-from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm, tree, preprocessing
+from sklearn import dummy, ensemble, linear_model, metrics, neighbors, svm,\
+                    tree, preprocessing
 import matplotlib.pyplot as plt
 import seaborn as sns
 import graphviz
@@ -49,8 +50,8 @@ def read_csv(filepath, cols=None, col_types=None, index_col=None):
 
 def count_per_categorical(df, cat_column):
     '''
-    Summaries the number of observations associated with each value in a given
-    categorical column and shows the distribtuion of observations across
+    Summarizes the number of observations associated with each value in a given
+    categorical column and shows the distribution of observations across
     categories.
 
     Inputs:
@@ -72,11 +73,11 @@ def count_per_categorical(df, cat_column):
 
 def show_distribution(series):
     '''
-    Graphs a histogram and the box plot of numeric type series and a bar plot
-    of categorial type series.
+    Graphs a histogram box plot of numeric type series and a bar plot of
+    categorial type series.
 
     Inputs:
-    df (pandas series): the variable to show the distribution of
+    series (pandas series): the variable to show the distribution of
 
     Returns: matplotlib figure
 
@@ -152,7 +153,7 @@ def pw_correlate(df, variables=None, visualize=False):
 
 def summarize_data(df, grouping_vars=None, agg_cols=None):
     '''
-    Groups rows based on the set of grouping variables and report summary
+    Groups rows based on the set of grouping variables and reports summary
     statistics over the other numeric variables.
 
     Inputs:
@@ -200,7 +201,7 @@ def find_ouliers_univariate(series):
 
 def find_outliers(df, excluded=None):
     '''
-    Identifies outliers for each numeric column in a dataframe, and returns a
+    Identifies outliers for each numeric column in a dataframe and returns a
     dataframe matching each record with the columns for which it is an outlier
     and the number and percent of checked columns for which a is an outlier.
     Outlier is defined as any value thats fall more than 1.5 * IQR below the
@@ -209,8 +210,9 @@ def find_outliers(df, excluded=None):
 
     Inputs:
     df (pandas dataframe): the dataframe to find outliers in
-    excluded (str list of strs): optional column name or a list of columns names
-        not to look for outliers in; default is including all numeric columns
+    excluded (str or list of strs): optional column name or a list of columns
+        names not to look for outliers in; default is including all numeric
+        columns
 
     Returns: pandas series
     '''
@@ -230,10 +232,11 @@ def find_outliers(df, excluded=None):
 
 def identify_missing(series):
     '''
-    Generates series specifying whether observation contains a missing value.
+    Generates series specifying whether a given observation contains a missing
+        value.
 
     Inputs:
-    sereis (pandas dataframe): the variable to identify missing in
+    series (pandas dataframe): variable to identify missing values in
 
     Returns: pandas series
     '''
@@ -247,13 +250,14 @@ def impute_missing(series, method=None, manual_val=None):
     median is used for numeric columns and mode is used for non-numeric columns.
 
     Inputs:
-    series (pandas series): the series to impute missing data for
+    series (pandas series): the variable to impute missing data for
     method (str): the imputation method; currently supported methods:
-        - 'mean': fill missing with the mean of the column (numeric series only)
-        - 'median': fill missing with the median of the column (numeric series
-                    only)
-        - 'mode': fill missing with the mode of the column
-        - 'manual': fill missing with a user-specified value
+        - 'mean': fill missing data with the mean of the column (numeric series
+            only)
+        - 'median': fill missing data with the median of the column (numeric
+            series only)
+        - 'mode': fill missing data with the mode of the column
+        - 'manual': fill missing data with a user-specified value
     manual_val (single value, should match type of series): a user-specified
         value to fill missing values with
 
@@ -274,22 +278,25 @@ def impute_missing(series, method=None, manual_val=None):
     elif method == 'manual':
         return series.fillna(manual_val)
 
+    return None
+
 def preprocess_data(df, methods=None, manual_vals=None):
     '''
     Removes missing values and adds columns to the dataframe to identify which
-    observations where missing certain variables. If the imputation method for
-    a column is not specified, median is used for numeric variables and mode is
-    used for non-numeric variables.
+    observations were missing values for certain variables. If the imputation
+    method for a column is not specified, median is used for numeric variables
+    and mode is used for non-numeric variables.
 
     Inputs:
-    df (pandas dataframe): contains the data to preprocess
-    methods (dict): keys are column names and values the imputation method to
-        apply to that column; currently supported methods:
-        - 'mean': fill missing with the mean of the column (numeric series only)
-        - 'median': fill missing with the median of the column (numeric series
-                    only)
-        - 'mode': fill missing with the mode of the column
-        - 'manual': fill missing with a user-specified value
+    df (pandas dataframe): contains the dataset to preprocess
+    methods (dict): keys are column names and values are the imputation method
+        to apply to that column; currently supported methods:
+        - 'mean': fill missing data with the mean of the column (numeric series
+             only)
+        - 'median': fill missing data with the median of the column (numeric
+            series only)
+        - 'mode': fill missing data with the mode of the column
+        - 'manual': fill missing data with a user-specified value
     manual_vals (dict): keys are column names and values the values to fill
         missing values with in columns with 'manual' imputation method
 
@@ -306,7 +313,7 @@ def preprocess_data(df, methods=None, manual_vals=None):
                 .add_suffix('_missing')
     processed_cols = df[to_process]\
                        .apply(lambda x: impute_missing(x, method=methods.get(x.name, None),
-                              manual_val=manual_vals.get(x.name, None)),
+                                                       manual_val=manual_vals.get(x.name, None)),
                               axis=0)
     df = df.drop(to_process, axis=1)
     return pd.concat([df, processed_cols, missing], axis=1)
@@ -369,15 +376,13 @@ def create_dummies(df, column, values=None):
     Transforms variables into a set of dummy variables.
 
     Inputs:
-    df (pandas dataframe/series): the data to transform dummies in;
-        all columns not being converted to dummies must be numeric
-        types
-    columns (list of strs): column name containing categorical
-        variable to convert to dummy variables
+    df (pandas dataframe/series): the data to generate transform dummies in
+    column (strs): column name containing categorical variables to convert to
+        dummy variables
     values (list of values): values in the specified column to create dummies
         for; by default, a column is made for all values
 
-    Returns: pandas dataframe where the columns to be converted is replaced with
+    Returns: pandas dataframe where the columnsto be converted is replaced with
         columns containing dummy variables
     '''
     if values is None:
@@ -421,10 +426,10 @@ def generate_n_occurences(series, addl_obs=None):
     Inputs:
     series (pandas series): the original variable to generate the feature based
         on
-    addl_obs (pandas series): additional observations to consider when counting the
-        number of occurences of each value; these observations are not included
-        in the output, and this column is indended to be used for observations
-        from the training set when the series is from a test set
+    addl_obs (pandas series): additional observations to consider when counting
+        the number of occurences of each value; these observations are not
+        included in the output, and this column is indended to be used for
+        observations from the training set when the series is from a test set
     '''
     val_counts = series.append(addl_obs, ignore_index=True)\
                        .value_counts()
@@ -466,7 +471,7 @@ def report_n_missing(df):
 
 def visualize_decision_tree(dt, feature_names, class_names, filepath='tree'):
     '''
-    Saves and opens a PDF visualizing the specified decision tree.
+    Saves and opens a PDF visualizing a specified decision tree.
 
     Inputs:
     dt (sklearn.tree.DecisionTreeClassifier): a trained decision tree classifier
@@ -517,12 +522,6 @@ def generate_iter_model_specs(base_specs, iter_param, iter_vals):
     'bagging': sklearn.ensemble.BaggingClassifier
     'dummy': sklearn.dummy.DummyClassifier
 
-    Example usage:
-    generate_classifiers(x, y, {'model': 'dt', 'max_depth': 5})
-
-    The above line will generate a decision tree classifiers with a max depth of
-    5.
-
     For more information on valid parameters to include in the dictionaries,
     consult the sklearn documentation for each model.
     '''
@@ -541,7 +540,7 @@ def write_model_specs(models, output_path, input_path=None):
 
     Inputs:
     models (list of dicts): the model specifications to write to file
-    output_path (str): the filepath to output the model specifications to, will
+    output_path (str): the filepath to output the model specifications to; will
         overwrite any existing file
     input_path (str): a file with existing model specs to append the list to
     '''
@@ -555,13 +554,13 @@ def write_model_specs(models, output_path, input_path=None):
 
 def generate_classifier(features, target, model_specs):
     '''
-    Generates a classifier to predict a target attribute (target)
-    based on other attributes (features).
+    Generates a classifier to predict a target attribute (target) based on other
+    attributes (features).
 
     Inputs:
-    features (pandas dataframe): Data for features to build the classifier(s)
+    features (pandas dataframe): data for features to build the classifier
         with; all columns must be numeric in type
-    target (pandas series): Data for target attribute to build the classifier(s)
+    target (pandas series): data for target attribute to build the classifier
         with; should be categorical data in a numerical form
     model_specs (dicts): A dictionary specifying the classifier
         model to generate. Each dictionary must contain a "model" key with a
@@ -613,9 +612,10 @@ def generate_classifier(features, target, model_specs):
 
 def predict_target_probability(model, features):
     '''
-    Generates predicted probabilities of a binary target being positive
+    Generates predicted probabilities/scores of a binary target being positive
     (represented as 1) based on a model.
 
+    Inputs:
     model (trained sklearn classifier): the model to generate predicted
         probabilities with
     features (pandas dataframe): instances to generate predictied probabilities
@@ -634,28 +634,28 @@ def predict_target_probability(model, features):
 def predict_target_class(pred_probs, threshold, tie_breaker='random',
                          true_classes=None, seed=None):
     '''
-    Generates predicted probabilities of a binary target being positive
-    (represented as 1) based on a model.
+    Generates predicted classes of a binary target based on some percentage
+    prediction threshold.
 
+    Inputs:
     pred_probs (pandas series): predicted probabilies of the target variable
         being positive
     threshold (float): the precentile of observations to predict as positive,
         should be in the range [0.0, 1.0]
     tie_breaker (str): how to break ties when predicting classes at the margin
-        when predicting classese; valid inputs are:
-        - 'random': randomly selects which instances to predict as positive among
-                    those with the lowest probability meeting the specified
-                    threshold
+        when predicting classes; valid inputs are:
+        - 'random': randomly selects which instances to predict as positive
+            among those with the lowest probability meeting the specified
+            threshold
         - 'pessimistic': prioritizes selecting which instances with a true
-                         target value of negative to predict as positive among
-                         those with the lowest probability meeting the specified
-                         threshold, used for evaluation
-        - 'optimistic': prioritizes selecting instances with a true
-                         target value of positive to predict as positive among
-                         those with the lowest probability meeting the specified
-                         threshold, used for evaluation
+            target value of negative to predict as positive among those with the
+            lowest probability meeting the specified threshold, used for
+            evaluation
+        - 'optimistic': prioritizes selecting instances with a true target value
+            of positive to predict as positive among those with the lowest
+            probability meeting the specified threshold, used for evaluation
     true_classes (pandas series): the ground truth about whether the target
-        variable is positive
+        variable is positive; necessary for optimistic and pessimistic methods
     seed (int): optional seed to make results reproducable
 
     Returns: pandas series
@@ -713,16 +713,17 @@ def evaluate_classifier(pred_probs, true_classes, thresholds, tie_breaker='rando
     '''
     Calculates a number of evaluation metrics (accuracy, precision, recall, and
     F1 at different levels and AUC-ROC) and generates a graph of the
-    precision-recall curve for a given model.
+    precision-recall curves for a given model.
 
+    Inputs:
     pred_probs (pandas series): predicted probabilies of the target variable
         being positive
-    true_classes (pandas series): the ground truth about whether the target variable
-        is positive
+    true_classes (pandas series): the ground truth about whether the target
+        variable is positive
     thresholds (list of floats): different threshold levels to use when
         calculating precision, recall and F1, should be in range [0.0, 1.0]
     tie_breaker (str): how to break ties when predicting classes at the margin
-        when predicting classese; valid inputs are:
+        when predicting classeses; valid inputs are:
         - 'random': random selects which instances to predict as positive among
                     those with the lowest probability meeting the specified
                     threshold
@@ -737,10 +738,10 @@ def evaluate_classifier(pred_probs, true_classes, thresholds, tie_breaker='rando
     seed (int): optional seed to make results reproducable
     model_name (str): optional model name to include in the title of the
         precision/recall curve graph
-    dataset_name (str): optional model name to include in the title of the
+    dataset_name (str): optional dataset name to include in the title of the
         precision/recall curve graph
 
-    Returns: tuple of pandas series and matplotlib figure
+    Returns: tuple of (pandas series, matplotlib figure)
     '''
     index = [['Accuracy'] * len(thresholds) +['Precision'] * len(thresholds) +
              ['Recall'] * len(thresholds) + ['F1'] * len(thresholds),
@@ -772,6 +773,7 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
     '''
     Produces a precision/recall graph based on predictions generated by a model.
 
+    Inputs:
     pred_probs (pandas series): predicted probabilies of the target variable
         being positive
     true_classes (pandas series): the ground truth about whether the target variable
@@ -779,7 +781,7 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
     resolution (list of ints): number of evenly-spaced threshold levels to plot
         recall and precision at
     tie_breaker (str): how to break ties when predicting classes at the margin
-        when predicting classese; valid inputs are:
+        when predicting classes; valid inputs are:
         - 'random': random selects which instances to predict as positive among
                     those with the lowest probability meeting the specified
                     threshold
@@ -799,9 +801,6 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
 
     Returns: tuple of pandas series and matplotlib figure
     '''
-    if not seed:
-        seed = random.randrange(0, 2147483647) #must set some seed for
-        #graph to make sense, given repeated calls to predict_target_class
     sns.set()
     fig, ax = plt.subplots()
     thresholds = np.linspace(0.01, 1, num=resolution)
@@ -812,7 +811,6 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
                                             true_classes, seed)
         precision.append(metrics.precision_score(true_classes, pred_classes))
         recall.append(metrics.recall_score(true_classes, pred_classes))
-    precision_recall_curves = pd.DataFrame
     sns.lineplot(thresholds, precision, drawstyle='steps-pre', ax=ax, label='Precision')
     sns.lineplot(thresholds, recall, drawstyle='steps-pre', ax=ax, label='Recall')
 
@@ -835,27 +833,29 @@ def graph_precision_recall(pred_probs, true_classes, resolution=33,
 def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None,
                            end_date=None):
     '''
-    Splits into different sets by time intervals.
-    
+    Splits into training/testing different sets by time intervals. Training set
+    are all observations before some data and testing set is all observations
+    active on some date.
+
     Inputs:
-        df (pandas dataframe): the full dataset to split
-        date_col (str): the name of the column in the dataframe containing the date
-            attribute to split on
-        time_length (dictionary): specifies the time length of each split, with
-            strings of units of time (i.e. hours, days, months, years, etc.) as keys
-            and integers as values; for example 6 months would be {'months': 6}
-        gap (dictionary): optional length of time to leave between the end of the
-            training set and the beginning of the test set, specified as a dictionary
-            with string units of time as keys and integers as values
-        start_date (str): the first date to include in a testing split; value should
-            be in the form "yyyy-mm-dd", if blank the first date in a training set
-            will be the first date in the data set plus the value of time_length
-        end_date (str): the final date to include in a testing split; value should
-            be in the form "yyyy-mm-dd", if blank the first date in a training set
-            will be the first date in the data set plus the value of time_length
+    df (pandas dataframe): the full dataset to split
+    date_col (str): the name of the column in the dataframe containing the date
+        attribute to split on
+    time_length (dictionary): specifies the time length of each split, with
+        string units of time (i.e. hours, days, months, years, etc.) as keys
+        and integers as values; for example 6 months would be {'months': 6}
+    gap (dictionary): optional length of time to leave between the end of the
+        training set and the beginning of the test set, specified as a
+        dictionary with string units of time as keys and integers as values
+    start_date (str): the first date to include in a testing split; value should
+        be in the form "yyyy-mm-dd", if blank the first date in a training set
+        will be the first date in the data set plus the value of time_length
+    end_date (str): the final date to include in a testing split; value should
+        be in the form "yyyy-mm-dd", if blank the first date in a training set
+        will be the first date in the data set plus the value of time_length
 
     Returns: tuple of list of pandas dataframes, the first of which contains
-        test sets and the second of which contains training sets
+        training sets and the second of which contains testing sets
     '''
     time_length = relativedelta(**time_length)
 
@@ -886,29 +886,30 @@ def create_temporal_splits(df, date_col, time_length, gap=None, start_date=None,
 
     return train_splits, test_splits
 
-def get_feature_importance(X_train, clf, model):
+def get_feature_importance(x_train, clf, model):
     '''
-    Get feature importance from a model
-    Input:
-        X_train: training data (features only)
-        clf: a classfier object
-        model_type: classifier's model type abbreviation
-            'dt': sklearn.tree.DecisionTreeClassifier
-            'lr': sklearn.linear_model.LogisticRegression
-            'knn': sklearn.neighbors.KNeighborsClassifier
-            'svc': sklearn.svm.LinearSVC
-            'rf': sklearn.ensemble.RandomForestClassifier
-            'boosting': sklearn.ensemble.AdaBoostClassifier
-            'bagging': sklearn.ensemble.BaggingClassifier
-            'dummy': sklearn.dummy.DummyClassifier
+    Get feature importance from a model.
 
-    Returns a pandas dataframe containing feature importance
+    Input:
+    x_train (pandas daataframe): training data (features only)
+    clf (trained sklearn classifier): a classfier object
+    model_type (str): classifier's model type abbreviation
+        'dt': sklearn.tree.DecisionTreeClassifier
+        'lr': sklearn.linear_model.LogisticRegression
+        'knn': sklearn.neighbors.KNeighborsClassifier
+        'svc': sklearn.svm.LinearSVC
+        'rf': sklearn.ensemble.RandomForestClassifier
+        'boosting': sklearn.ensemble.AdaBoostClassifier
+        'bagging': sklearn.ensemble.BaggingClassifier
+        'dummy': sklearn.dummy.DummyClassifier
+
+    Returns: pandas dataframe containing feature importance
     '''
     model_type = model['model']
     if model_type in ['rf', 'dt', 'boosting', 'bagging']:
-        importances = list(zip(X_train.columns, clf.feature_importances_))
+        importances = list(zip(x_train.columns, clf.feature_importances_))
     elif model_type in ['lr', 'svc']:
-        importances = list(zip(X_train.columns, clf.coef_[0]))
+        importances = list(zip(x_train.columns, clf.coef_[0]))
     else:
         importances = None
 
@@ -919,12 +920,13 @@ def get_feature_importance(X_train, clf, model):
 
 def create_interactions(df, cols_to_interact):
     '''
-    Create feature interactions.
+    Create interactions between columns.
 
     Inputs:
-        df: a pandas dataframe
-        cols_to_interact: list of features to interact
-    Returns a pandas dataframe
+    df (pandas dataframe): a pandas dataframe
+    cols_to_interact (list of strs): names of columns to interact
+
+    Returns: pandas dataframe
     '''
     interaction = 'inter_' + ''.join(cols_to_interact)
     df[interaction] = df[cols_to_interact[0]].astype(int)
@@ -936,12 +938,13 @@ def create_interactions(df, cols_to_interact):
 
 def days_between(date, ref_date):
     '''
-    Difference in days with respect to a reference period
-    
+    Difference in days with respect to a reference column.
+
     Inputs:
-        date: a pandas series containing dates
-        ref_date: a pandas series containing dates for reference
-    Returns a pandas series 
+        date (pandas series): column containing dates
+        ref_date (pandas series): column containing reference dates
+
+    Returns: pandas series
     '''
     date = pd.to_datetime(date)
     ref_date = pd.to_datetime(ref_date)
@@ -951,7 +954,7 @@ def days_between(date, ref_date):
 
 def convert_iter_dummy(df, col):
     '''
-    Converts a columns in a data frame with iterables (list, set, etc.) to a 
+    Converts a columns in a data frame with iterables (list, set, etc.) to a
     set of dummy columns.
 
     Inputs:

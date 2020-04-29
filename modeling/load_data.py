@@ -1,5 +1,5 @@
 '''
-Functions to load, transform, and link data sources
+Functions to load, transform, and link data sources.
 
 Ben Fogarty
 Parth Khare
@@ -12,23 +12,20 @@ Prof. Rayid Ghani
 12 June 2019
 '''
 
-import os
+from datetime import timedelta
 import json
 import pickle
-import numpy as np
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import shape
+
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
-from datetime import timedelta, datetime
-import shapely
+
 import certifi
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import shapely
 from sodapy import Socrata
 import urllib3
-import matplotlib.pyplot as plt
-import seaborn as sns
-pd.options.display.max_columns = 999
 
 MAX_REQS = 1000000
 TOKENS_FILEPATH = 'tokens.json'
@@ -40,21 +37,22 @@ REAL_ESTATE_MONTHS = 6
 
 
 #### Main Flow ####
-def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS, 
+def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
                  real_estate_months=REAL_ESTATE_MONTHS, pickle_filepath=None):
     '''
-    Load and transform the business license data for the machine learning pipeline. 
-    Integrate data with auxiliary datasets.
-    
+    Load and transform the business license data for the machine learning
+    pipeline. Integrate data with auxiliary datasets.
+
     Input:
-        tokens_filepath (str): filepath to a json file containing API keys. The file should 
-            contain two keys: "chicago_open_data_portal" and "us_census_bureau". 
-            Default="tokens.json"
-        cta_months (int): number of months to aggregate cta ridership data over. Default=6.
-        real_estate_months (int): number of months to aggregate zillow median home value over.
-            Default=6.
-        pickle_filepath (str): pickle filepath for saving the linked dataset. If None, the data
-            will not be pickled. Default=None.
+    tokens_filepath (str): filepath to a json file containing API keys. The file
+        should contain two keys: "chicago_open_data_portal" and
+        "us_census_bureau". Default = "tokens.json"
+    cta_months (int): number of months to aggregate cta ridership data over.
+        Default = 6.
+    real_estate_months (int): number of months to aggregate zillow median
+        home value over. Default = 6.
+    pickle_filepath (str): pickle filepath for saving the linked dataset. If
+        None, the data will not be pickled. Default = None.
 
     Returns: (geodataframe) a pandas dataframe
     '''
@@ -68,11 +66,11 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
     lcs = clean_lcs(lcs)
 
     print('Changing unit of analysis...')
-    lcs = change_unit_analysis(lcs, {'years': 1}, '2002-01-01' )
+    lcs = change_unit_analysis(lcs, {'years': 1}, '2002-01-01')
 
     print('Creating geospatial properties...')
-    lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')  
-    
+    lcs = gdf_from_latlong(lcs, lat='latitude', long_='longitude')
+
     print('Linking census tracts...')
     lcs = add_census_tracts(lcs)
 
@@ -83,16 +81,17 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
         print('---Error obtaining 2000 Census data, retrying request')
         census_2000 = get_2000_census_data(tokens)
     try:
-        census_2010 = get_2010_census_data(tokens) 
+        census_2010 = get_2010_census_data(tokens)
     except:
         print('---Error obtaining 2010 Census data, retrying request')
         census_2010 = get_2010_census_data(tokens)
+    chicago_zips = lcs.zip_code[lcs.zip_code.notna()].unique()
     try:
-        zbp = get_zbp_data(tokens)
+        zbp = get_zbp_data(tokens, chicago_zips)
     except json.JSONDecodeError:
         print('---Error obtaining ZBP Census data, retrying request')
-        zbp = get_zbp_data(tokens)
-    cta_ward = get_rides(tokens)
+        zbp = get_zbp_data(tokens, chicago_zips)
+    cta_ward = get_cta_rideship(tokens)
     real_estate = get_realestate(ZILLOW_FILEPATH)
     ump, gdp = get_ecofeatures(UMP_FILEPATH, GDP_FILEPATH)
 
@@ -111,23 +110,23 @@ def get_lcs_data(tokens_filepath=TOKENS_FILEPATH, cta_months=CTA_MONTHS,
                  'ward_precinct', 'geometry']
     lcs = lcs.drop(drop_cols, axis=1)
 
-    if pickle_filepath != None:
-        pickle.dump(lcs, open(pickle_filepath, "wb" ))
+    if pickle_filepath is not None:
+        pickle.dump(lcs, open(pickle_filepath, "wb"))
 
     return lcs
 
-
 #### Loading Functions ####
 
-# Load Chicago business licenses data
+# Load and wrangle Chicago business licenses data
 def obtain_lcs(tokens):
     '''
-    Obtain business licenses data from chicago open data portal.
+    Obtain business licenses data from the Chicago Open Data Portal.
 
-    Input: 
-        tokens (dict): dictionary containing API key for Chicago Open Data Portal
-    Returns:
-        a pandas dataframe
+    Input:
+    tokens (dict): tokens dictionary containing API key for the Chicago Open
+        Data Portal under key 'chicago_open_data_portal'
+
+    Returns: pandas dataframe
     '''
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
     results = client.get('xqx5-8hwx', city='CHICAGO', limit=MAX_REQS)
@@ -136,22 +135,20 @@ def obtain_lcs(tokens):
 
 def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
     '''
-    Labels each license with a time period. Time periods are defined by the
-    bucket size and start date arguments and cut based on the date_col
-    argument.
+    Modifies the dataset so that each observation represents a
+    business-time period, rather than a business license. Time periods are
+    defined by the bucket size and start date arguments.
 
     Inputs:
     lcs (pandas dataframe): a license dataset
-    bucket_size (dictionary): defines the size of each bucket, valid key-value
-        pairs are parameters for a dateutil.relativedelta.relativedelta object
+    bucket_size (dict): defines the size of each bucket, valid key-value pairs
+        are parameters for a dateutil.relativedelta.relativedelta object
     start_date (str): first day to include in a bucket, string of the form
         YYYY-MM-DD or YYYYMMDD
-    stop_date (str): the last prediction day to include in a bucket, string of the form
-        YYYY-MM-DD or YYYYMMDD
+    stop_date (str): the last prediction day to include in a bucket, string of
+        the form YYYY-MM-DD or YYYYMMDD
 
-    Returns: tuple of pandas dataframe, list of bucket starting dates
-
-    Stray setting with copy warning here
+    Returns: tuple of (pandas dataframe, list of bucket starting dates)
     '''
     if not start_date:
         start_date = min(lcs.license_start_date)
@@ -162,7 +159,7 @@ def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
     start_date = pd.to_datetime(start_date)
     stop_date = pd.to_datetime(stop_date)
     bucket_size = relativedelta(**bucket_size)
-    
+
     transformed_df = pd.DataFrame()
     lcs['min_start_date'] = lcs.groupby(['account_number', 'site_number'])\
                                .license_start_date\
@@ -173,7 +170,7 @@ def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
 
     i = 0
     while  start_date + i * bucket_size <= stop_date:
-        pred_date = start_date + i * bucket_size 
+        pred_date = start_date + i * bucket_size
         start_mask = lcs.min_start_date < pred_date
         end_mask = pred_date < lcs.max_exp_date
         future_mask = lcs.license_start_date < pred_date
@@ -182,29 +179,28 @@ def change_unit_analysis(lcs, bucket_size, start_date=None, stop_date=None):
                                                       lcs.license_status_change_date.isna())
         eligible_lcs = lcs.loc[mask, :].copy()
         eligible_lcs['pred_date'] = pred_date
-        eligible_lcs = collapse_licenses(eligible_lcs, bucket_size).reset_index()
-        transformed_df = transformed_df.append(eligible_lcs, ignore_index=True, sort=True)        
+        eligible_lcs = collapse_licenses(eligible_lcs).reset_index()
+        transformed_df = transformed_df.append(eligible_lcs, ignore_index=True,
+                                               sort=True)
         i += 1
 
-    transformed_df['no_renew_nextpd'] = transformed_df.max_exp_date < transformed_df.pred_date.apply(
-                                        lambda x: x + relativedelta(years=2))
+    transformed_df['no_renew_nextpd'] = \
+        transformed_df.max_exp_date < transformed_df.pred_date.apply(lambda x: x + relativedelta(years=2))
 
     return transformed_df
 
-def collapse_licenses(lcs, time_gap):
+def collapse_licenses(lcs):
     '''
     Collapses all the licenses associated with a given accountid-siteid based on
-    their time period so that each row represents one accountid-siteid-time
-    period.
+    so that each row represents one business rather than a license.
 
     Inputs:
     lcs (pandas dataframe): a license dataset
-    time_gap (dictionary): defines the size of each bucket, valid key-value
-        pairs are parameters for a dateutil.relativedelta.relativedelta object
 
     Returns: pandas dataframe
     '''
-    lcs.loc[:, 'rev_or_rea'] = (lcs.license_status == 'REV') | (lcs.license_status == 'REA')
+    lcs.loc[:, 'rev_or_rea'] = ((lcs.license_status == 'REV') |
+                                (lcs.license_status == 'REA'))
     lcs.loc[:, 'canceled'] = lcs.license_status == 'AAC'
     lcs.loc[:, 'conditional_tf'] = lcs.conditional_approval == 'Y'
     lcs_collapse = lcs.groupby(['account_number', 'site_number'])\
@@ -264,20 +260,21 @@ def collapse_licenses(lcs, time_gap):
                                         "ssa_first": "ssa",
                                         "pred_date_first": "pred_date",
                                         "max_exp_date_first": "max_exp_date"},
-                                        axis=1)
+                                       axis=1)
 
     return lcs_collapse
 
 def convert_lcs_dtypes(lcs):
     '''
-    Convert data types of business licenses.
+    Convert data types of business license dataset.
 
-    Input: 
-        lcs: (dataframe) raw business licenses data
-    Returns: updated dataframe
+    Input:
+    lcs: (dataframe) raw business licenses data
+
+    Returns: pandas dataframe
     '''
-    lcs_dates = ['application_created_date', 
-                 'application_requirements_complete', 
+    lcs_dates = ['application_created_date',
+                 'application_requirements_complete',
                  'payment_date',
                  'license_start_date',
                  'expiration_date',
@@ -289,38 +286,44 @@ def convert_lcs_dtypes(lcs):
     lcs['longitude'] = lcs['longitude'].astype('float64')
     return lcs
 
-def clean_lcs(lcs): #May want to talk about what we're doing in this function
+def clean_lcs(lcs):
     '''
     Clean business licenses data.
 
-    Input: 
-        lcs: (dataframe) raw business licenses data
-    Returns: updated dataframe    
+    Input:
+    lcs: (dataframe) raw business licenses dataset
+
+    Returns: pandas dataframe
     '''
     # fill license start dates
-    # for issuance type: fill start date with issue date
-    nastart_issue = lcs['license_start_date'].isna() & (lcs['application_type'] == 'ISSUE')
-    lcs.loc[nastart_issue, 'license_start_date'] = lcs.loc[nastart_issue, 'date_issued']
-    # for other types: drop (negligible)
+    # for issue type license: fill start date with issue date
+    nastart_issue = lcs['license_start_date'].isna() &\
+                    (lcs['application_type'] == 'ISSUE')
+    lcs.loc[nastart_issue, 'license_start_date'] = lcs.loc[nastart_issue,
+                                                           'date_issued']
+    # for other types: drop (negligible number)
     lcs = lcs.dropna(subset=['license_start_date'], axis=0)
 
     # drop rows with negative license length
-    lcs = lcs[(lcs['expiration_date'] - lcs['license_start_date']) > timedelta(days=0)]
+    lcs = lcs[(lcs['expiration_date'] - lcs['license_start_date']) >\
+              timedelta(days=0)]
 
     # drop rows with no location
     lcs = lcs.dropna(subset=['location'], axis=0)
+    
     return lcs
 
 def gdf_from_latlong(df, lat, long_):
     '''
-    convert a pandas dataframe to a geodataframe on lat long
+    Convert a pandas dataframe to a geodataframe from latitude and longitude
+    columns.
 
     Inputs:
-        df: (dataframe) original df
-        lat: (str) column name for latitude
-        long: (str) column name for longitude
-    
-    Returns: a geodataframe
+    df: (pandas dataframe) original df
+    lat: (str) column name for latitude
+    long: (str) column name for longitude
+
+    Returns: geopandas geodataframe
     '''
     gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[long_], df[lat]))
 
@@ -328,64 +331,65 @@ def gdf_from_latlong(df, lat, long_):
 
 def add_census_tracts(lcs):
     '''
-    add census tract number to business licenses dataset through spatial join
-    with census tract boundaries (2000 and 2010) from chicago open data oprtal
+    Add census tract numbers to business licenses dataset through spatial join
+    with 2000 and 2010 census tract boundaries (2000 and 2010) from the Chicago
+    Open Data Portal.
 
-    Input: 
-        lcs: (geodataframe) business licenses data
-    Returns: geodataframe with census tract number
-    
+    Input:
+    lcs: (geopandas geodataframe) business licenses dataset
+
+    Returns: geopandas geodataframe
     '''
     # census tracts
     # post 2010
     tokens = load_tokens('tokens.json')
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
-    
+
     tracts10 = pd.DataFrame(client.get('74p9-q2aq', select='the_geom,tractce10',
-                            limit=MAX_REQS))
+                                       limit=MAX_REQS))
     tracts10['the_geom'] = tracts10.the_geom\
-                                       .apply(shapely.geometry.shape)
+                                   .apply(shapely.geometry.shape)
     tracts10 = gpd.GeoDataFrame(tracts10, geometry='the_geom')
     lcs_10 = add_geography_id(lcs[lcs.pred_date >= parser.parse('2010-01-01')],
                               tracts10)
-    lcs_10.rename(columns={'tractce10':'census_tract'}, inplace=True) 
+    lcs_10.rename(columns={'tractce10':'census_tract'}, inplace=True)
 
     # pre 2010
     tracts00 = pd.DataFrame(client.get('4hp8-2i8z', select='the_geom,census_tra',
-                            limit=MAX_REQS))
+                                       limit=MAX_REQS))
     tracts00['the_geom'] = tracts00.the_geom\
-                                       .apply(shapely.geometry.shape)
+                                   .apply(shapely.geometry.shape)
     tracts00 = gpd.GeoDataFrame(tracts00, geometry='the_geom')
-    lcs_00 = add_geography_id(lcs[lcs.pred_date < parser.parse('2010-01-01')], 
+    lcs_00 = add_geography_id(lcs[lcs.pred_date < parser.parse('2010-01-01')],
                               tracts00)
-    lcs_00.rename(columns={'census_tra':'census_tract'}, inplace=True) 
+    lcs_00.rename(columns={'census_tra':'census_tract'}, inplace=True)
 
     # combine
     lcs = pd.concat([lcs_00, lcs_10], axis=0)
+    
     return lcs
 
-def add_geography_id(gdf, b):
+def add_geography_id(gdf, bounds):
     '''
-    Add geography ID from boundaries file by matching points to polygons in the 
+    Add geographic ID from boundaries file by matching points to polygons in the
     boundaries dataframe.
 
-    Input: 
-        gdf: geodataframe with points
-        b: geodataframe with polygons (boundaries)
+    Input:
+    gdf (geopandas geodataframe): locations/points dataframe
+    bounds (geopandas geodataframe): boundaries dataframe
 
-    Returns: (geodataframe) gdf with geography id from b
-    
+    Returns: geopandas geodataframe
     '''
-    b.crs = {'init': 'epsg:4326'}
+    bounds.crs = {'init': 'epsg:4326'}
     gdf.crs = {'init': 'epsg:4326'}
 
-    result = gpd.sjoin(gdf, b, how="left")
+    result = gpd.sjoin(gdf, bounds, how="left")
     # drop extra column
     result.drop('index_right', axis=1, inplace=True)
+
     return result
 
-
-# Load Census data
+# Load and wrangle Census data
 def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
     '''
     Downloads a dataset from the United States Census Bureau.
@@ -401,8 +405,10 @@ def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
         returned dataset; key should be the string name of a geography
         and the value should be the string value of a geography
     key (str): Census Bureau API key
+
+    Returns: pandas dataframe
     '''
-    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', 
+    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED',
                                ca_certs=certifi.where())
     fields = {}
 
@@ -411,7 +417,7 @@ def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
 
     for_arg = for_level[0] + ':' + ','.join(for_level[1])
     fields['for'] = for_arg
-    
+
     if in_levels is not None:
         in_args = []
         for geo, val in in_levels.items():
@@ -419,31 +425,28 @@ def get_census_data(base_url, vars, for_level, in_levels=None, key=None):
         in_arg = '%20'.join(in_args)
         fields['in'] = in_arg
 
-    if key is not key:
+    if key is not None:
         fields['key'] = key
-    
+
     req = http.request('GET', base_url, fields=fields)
     data = json.loads(req.data)
-    df = pd.DataFrame(data[1:], columns=data[0], )
-    
+    df = pd.DataFrame(data[1:], columns=data[0])
+
     return df
 
-def get_zbp_data(tokens):
+def get_zbp_data(tokens, zipcodes):
     '''
-    Temporary function to make merging code easier later.
+    Download zipcode business patterns data from the United States Census
+    Bureau.
 
     Input:
-        tokens (dict): dictionary containing API key for chicago open data portal
-    Returns a pandas dataframe
-    '''
-    cook_county_code = '031'
-    illinois_code = '17'
+    tokens (dict): dictionary containing API key for the US Census Bureau under
+        the key 'us_census_bureau'
+    zipcodes (list of str): zipcodes to download data from
 
+    Returns: pandas dataframe
+    '''
     zbp_url = 'https://api.census.gov/data/{}/zbp'
-    client = Socrata('data.cityofchicago.org', 
-                     tokens['chicago_open_data_portal'])
-    results = client.get('unjd-c2ca', select='zip')
-    chicago_zips = pd.DataFrame.from_records(results).zip.tolist()
     zbp_vars = {'EMP': 'Paid employees for pay period ending March 12',
                 'ESTAB': 'Number of establishments',
                 'PAYANN': 'Annual payroll'}
@@ -451,10 +454,14 @@ def get_zbp_data(tokens):
     zbp_data = pd.DataFrame()
     for year in range(2000, 2017):
         base_url = zbp_url.format(year)
-        zbp_oneyr = get_census_data(base_url, zbp_vars, 
-                                    ('zipcode', chicago_zips),
+        zbp_oneyr = get_census_data(base_url, zbp_vars,
+                                    ('zipcode', zipcodes),
                                     key=tokens['us_census_bureau'])
         zbp_oneyr = zbp_oneyr.rename(zbp_vars, axis=1)
+
+        if 'zip code' in zbp_oneyr.columns: # handle USCBapi inconsistency
+            zbp_oneyr = zbp_oneyr.rename({'zip code': 'zipcode'}, axis=1)
+
         zbp_oneyr['year'] = year
         zbp_data = zbp_data.append(zbp_oneyr, ignore_index=True)
 
@@ -466,11 +473,12 @@ def get_zbp_data(tokens):
 
 def process_2000_education(row):
     '''
-    Aggregates educations columsn from 2000 decentential census
+    Aggregates educations columns from 2000 decentential census (intended for
+    use in a dataframe apply function).
 
     row (array like): the row to aggregate over
 
-    returns pandas series
+    Returns: pandas series
     '''
     processed = pd.Series()
     processed['Less than high school graduate'] = np.sum(row[0:8])
@@ -478,17 +486,18 @@ def process_2000_education(row):
     processed["Some college or associate's degree"] = np.sum(row[9:12])
     processed["Bachelor's degree"] = row[12]
     processed["Graduate or professional degree"] = np.sum(row[13:16])
-    
+
     if row['P037001']:
-        processed = processed / row['P037001'] 
+        processed = processed / row['P037001']
     else:
         processed[:] = float('nan')
-    
+
     return processed
 
 def process_race(row):
     '''
-    Processes race columns from 2000 decenentetial census and 2010 ACS
+    Processes race columns from 2000 decenentetial census and 2010 ACS (intended
+    for use in a dataframe apply function).
 
     row (array like): the row to process
 
@@ -500,33 +509,34 @@ def process_race(row):
                  'Total 2+ races']
     if row['Total (Race)']:
         for col in race_cols:
-            processed[col] =  row[col] / row['Total (Race)']
+            processed[col] = row[col] / row['Total (Race)']
     else:
         for col in race_cols:
-            processed[col] =  float('nan')
+            processed[col] = float('nan')
 
-    if row ['Total (Hispanic/Not Hispanic)']:
-        processed['Hispanic or Latino'] = (row["Hispanic or Latino"] / 
+    if row['Total (Hispanic/Not Hispanic)']:
+        processed['Hispanic or Latino'] = (row["Hispanic or Latino"] /
                                            row["Total (Hispanic/Not Hispanic)"])
     else:
         processed['Hispanic or Latino'] = float('nan')
-    
+
     return processed
 
 def process_2010_education(row):
     '''
-    Aggregates educations columsn from 2000 decentential census
+    Aggregates educations columns from 2010 ACS (intended for use in a dataframe
+    apply function).
 
     row (array like): the row to aggregate over
 
-    Returns pandas series
+    Returns: pandas series
     '''
     if row['Population 25 years and over']:
         row = row / row['Population 25 years and over']
-    else: 
+    else:
         row[:] = float('nan')
     row = row.drop('Population 25 years and over')
-    
+
     return row
 
 def get_2000_census_data(tokens):
@@ -543,21 +553,21 @@ def get_2000_census_data(tokens):
 
     #Race
     dec_2000_race = {'P003001': 'Total (Race)',
-                    'P003003': 'White alone',
-                    'P003004': 'Black/AfAmer alone',
-                    'P003005': 'AmInd/Alaskn alone',
-                    'P003006': 'Asian alone',
-                    'P003007': 'HI alone',
-                    'P003008': 'Some other race alone',
-                    'P003009': 'Total 2+ races',
-                    'P004001': 'Total (Hispanic/Not Hispanic)',
-                    'P004002': 'Hispanic or Latino'}
+                     'P003003': 'White alone',
+                     'P003004': 'Black/AfAmer alone',
+                     'P003005': 'AmInd/Alaskn alone',
+                     'P003006': 'Asian alone',
+                     'P003007': 'HI alone',
+                     'P003008': 'Some other race alone',
+                     'P003009': 'Total 2+ races',
+                     'P004001': 'Total (Hispanic/Not Hispanic)',
+                     'P004002': 'Hispanic or Latino'}
 
-    race_2000 = get_census_data(base_urls['sf1'], dec_2000_race.keys(), 
-                                ('tract', ['*']), 
+    race_2000 = get_census_data(base_urls['sf1'], dec_2000_race.keys(),
+                                ('tract', ['*']),
                                 in_levels={'state': '17', 'county': '031'},
                                 key=tokens['us_census_bureau'])
-    
+
     race_2000 = race_2000.rename(dec_2000_race, axis=1)\
                          .drop(['state', 'county'], axis=1)\
                          .set_index('tract')\
@@ -570,9 +580,9 @@ def get_2000_census_data(tokens):
     dec_2000_income = {'P053001': 'Median household income (1999 dollars)',
                        'P089001': 'Total: Population for whom poverty status is determined',
                        'P089002': 'Income below poverty level'}
-    
-    income_2000 = get_census_data(base_urls['sf3'], dec_2000_income.keys(), 
-                                  ('tract', ['*']), 
+
+    income_2000 = get_census_data(base_urls['sf3'], dec_2000_income.keys(),
+                                  ('tract', ['*']),
                                   in_levels={'state': '17', 'county': '031'},
                                   key=tokens['us_census_bureau'])
     income_2000 = income_2000.rename(dec_2000_income, axis=1)\
@@ -581,54 +591,54 @@ def get_2000_census_data(tokens):
                              .astype(int)\
                              .drop('000000')
 
-    income_2000['Income below poverty level'] = (income_2000['Income below poverty level'] / 
+    income_2000['Income below poverty level'] = (income_2000['Income below poverty level'] /
                                                  income_2000['Total: Population for whom poverty status is determined'])
-    income_2000 = income_2000.drop('Total: Population for whom poverty status is determined', 
+    income_2000 = income_2000.drop('Total: Population for whom poverty status is determined',
                                    axis=1)
 
-    dec_2000_education =   {"P037001": "Total: Population 25 years and over",
-                            "P037003": "Total: Male: No schooling completed",
-                            "P037004": "Total: Male: Nursery to 4th grade",
-                            "P037005": "Total: Male: 5th and 6th grade",
-                            "P037006": "Total: Male: 7th and 8th grade",
-                            "P037007": "Total: Male: 9th grade",
-                            "P037008": "Total: Male: 10th grade",
-                            "P037009": "Total: Male: 11th grade",
-                            "P037010": "Total: Male: 12th grade, no diploma",
-                            "P037011": "Total: Male: High school graduate (includes equivalency)",
-                            "P037012": "Total: Male: Some college, less than 1 year",
-                            "P037013": "Total: Male: Some college, 1 or more years, no degree",
-                            "P037014": "Total: Male: Associate degree",
-                            "P037015": "Total: Male: Bachelor's degree",
-                            "P037016": "Total: Male: Master's degree",
-                            "P037017": "Total: Male: Professional school degree",
-                            "P037018": "Total: Male: Doctorate degree",
-                            "P037020": "Total: Female: No schooling completed",
-                            "P037021": "Total: Female: Nursery to 4th grade",
-                            "P037022": "Total: Female: 5th and 6th grade",
-                            "P037023": "Total: Female: 7th and 8th grade",
-                            "P037024": "Total: Female: 9th grade",
-                            "P037025": "Total: Female: 10th grade",
-                            "P037026": "Total: Female: 11th grade",
-                            "P037027": "Total: Female: 12th grade, no diploma",
-                            "P037028": "Total: Female: High school graduate (includes equivalency)",
-                            "P037029": "Total: Female: Some college, less than 1 year",
-                            "P037030": "Total: Female: Some college, 1 or more years, no degree",
-                            "P037031": "Total: Female: Associate degree",
-                            "P037032": "Total: Female: Bachelor's degree",
-                            "P037033": "Total: Female: Master's degree",
-                            "P037034": "Total: Female: Professional school degree",
-                            "P037035": "Total: Female: Doctorate degree"}
+    dec_2000_education = {"P037001": "Total: Population 25 years and over",
+                          "P037003": "Total: Male: No schooling completed",
+                          "P037004": "Total: Male: Nursery to 4th grade",
+                          "P037005": "Total: Male: 5th and 6th grade",
+                          "P037006": "Total: Male: 7th and 8th grade",
+                          "P037007": "Total: Male: 9th grade",
+                          "P037008": "Total: Male: 10th grade",
+                          "P037009": "Total: Male: 11th grade",
+                          "P037010": "Total: Male: 12th grade, no diploma",
+                          "P037011": "Total: Male: High school graduate (includes equivalency)",
+                          "P037012": "Total: Male: Some college, less than 1 year",
+                          "P037013": "Total: Male: Some college, 1 or more years, no degree",
+                          "P037014": "Total: Male: Associate degree",
+                          "P037015": "Total: Male: Bachelor's degree",
+                          "P037016": "Total: Male: Master's degree",
+                          "P037017": "Total: Male: Professional school degree",
+                          "P037018": "Total: Male: Doctorate degree",
+                          "P037020": "Total: Female: No schooling completed",
+                          "P037021": "Total: Female: Nursery to 4th grade",
+                          "P037022": "Total: Female: 5th and 6th grade",
+                          "P037023": "Total: Female: 7th and 8th grade",
+                          "P037024": "Total: Female: 9th grade",
+                          "P037025": "Total: Female: 10th grade",
+                          "P037026": "Total: Female: 11th grade",
+                          "P037027": "Total: Female: 12th grade, no diploma",
+                          "P037028": "Total: Female: High school graduate (includes equivalency)",
+                          "P037029": "Total: Female: Some college, less than 1 year",
+                          "P037030": "Total: Female: Some college, 1 or more years, no degree",
+                          "P037031": "Total: Female: Associate degree",
+                          "P037032": "Total: Female: Bachelor's degree",
+                          "P037033": "Total: Female: Master's degree",
+                          "P037034": "Total: Female: Professional school degree",
+                          "P037035": "Total: Female: Doctorate degree"}
 
-    educ_2000 = get_census_data(base_urls['sf3'], dec_2000_education.keys(), 
-                                ('tract', ['*']), 
+    educ_2000 = get_census_data(base_urls['sf3'], dec_2000_education.keys(),
+                                ('tract', ['*']),
                                 in_levels={'state': '17', 'county': '031'},
                                 key=tokens['us_census_bureau'])
-    
+
     educ_2000 = educ_2000.set_index('tract')\
                          .astype(int)
-    
-    educ_2000_combined = pd.DataFrame(data=(educ_2000.iloc[:, 1:17].to_numpy() + 
+
+    educ_2000_combined = pd.DataFrame(data=(educ_2000.iloc[:, 1:17].to_numpy() +
                                             educ_2000.iloc[:, 17:33].to_numpy()),
                                       index=educ_2000.index)
     educ_2000_combined['P037001'] = educ_2000['P037001'].to_numpy()
@@ -636,10 +646,10 @@ def get_2000_census_data(tokens):
                                   .drop('000000')
 
     return pd.concat([race_2000, income_2000, educ_2000], axis=1)
-    
+
 def get_2010_census_data(tokens):
     '''
-    Downloads data from the 2010 decennial census.
+    Downloads data from the 2010 ACS.
 
     Inputs:
     tokens (dictionary): a dictionary of API keys
@@ -660,11 +670,11 @@ def get_2010_census_data(tokens):
                      "B03001_001E": "Total (Hispanic/Not Hispanic)",
                      "B03001_003E": "Hispanic or Latino"}
 
-    race_2010 = get_census_data(acs_url, acs_2010_race.keys(), 
+    race_2010 = get_census_data(acs_url, acs_2010_race.keys(),
                                 ('tract', ['*']),
                                 in_levels={'state': '17', 'county': '031'},
                                 key=tokens['us_census_bureau'])
-    
+
     race_2010 = race_2010.rename(acs_2010_race, axis=1)\
                          .drop(['state', 'county'], axis=1)\
                          .set_index('tract')\
@@ -676,32 +686,31 @@ def get_2010_census_data(tokens):
                        "B06012_001E": 'Total: Population for whom poverty status is determined',
                        'B06012_002E': 'Income below poverty level'}
 
-    income_2010 = get_census_data(acs_url, acs_2010_income.keys(), 
-                                  ('tract', ['*']), 
+    income_2010 = get_census_data(acs_url, acs_2010_income.keys(),
+                                  ('tract', ['*']),
                                   in_levels={'state': '17', 'county': '031'},
                                   key=tokens['us_census_bureau'])
-    
+
     income_2010 = income_2010.rename(acs_2010_income, axis=1)\
                              .drop(['state', 'county'], axis=1)\
                              .set_index('tract')\
                              .astype(int)
 
-    income_2010['Median household income (1999 dollars)'] = (income_2010['Median household income (1999 dollars)'] * 
-                                                             .7640) #adjust for inflation
-    income_2010['Income below poverty level'] = (income_2010['Income below poverty level'] /
-                                                 income_2010['Total: Population for whom poverty status is determined'])
+    income_2010['Income below poverty level'] =\
+        (income_2010['Income below poverty level'] /
+         income_2010['Total: Population for whom poverty status is determined'])
     income_2010 = income_2010.drop('Total: Population for whom poverty status is determined',
                                    axis=1)
 
-    acs_2010_education =   {"B06009_001E": "Population 25 years and over",
-                            "B06009_002E": "Less than high school graduate",
-                            "B06009_003E": "High school graduate (includes equivalency)",
-                            "B06009_004E": "Some college or associate's degree",
-                            "B06009_005E": "Bachelor's degree",
-                            "B06009_006E": "Graduate or professional degree"}
+    acs_2010_education = {"B06009_001E": "Population 25 years and over",
+                          "B06009_002E": "Less than high school graduate",
+                          "B06009_003E": "High school graduate (includes equivalency)",
+                          "B06009_004E": "Some college or associate's degree",
+                          "B06009_005E": "Bachelor's degree",
+                          "B06009_006E": "Graduate or professional degree"}
 
-    education_2010 = get_census_data(acs_url, acs_2010_education.keys(), 
-                                     ('tract', ['*']), 
+    education_2010 = get_census_data(acs_url, acs_2010_education.keys(),
+                                     ('tract', ['*']),
                                      in_levels={'state': '17', 'county': '031'},
                                      key=tokens['us_census_bureau'])
 
@@ -715,14 +724,15 @@ def get_2010_census_data(tokens):
 
 
 # Load CTA ridership data
-def get_rides(tokens):
+def get_cta_rideship(tokens):
     '''
-    Obtain and aggregate CTA monthly ridership at ward level.
+    Obtain and aggregate CTA monthly ridership at the ward level.
 
-    Input: 
-        tokens (dict): dictionary containing API key for chicago data portal
-    Returns: 
-        a pandas data frame. 
+    Input:
+    tokens (dict): dictionary containing API key for the Chicago Open Data
+        Portal under key 'chicago_open_data_portal'
+
+    Returns: pandas dataframe
     '''
     client = Socrata('data.cityofchicago.org', tokens['chicago_open_data_portal'])
 
@@ -733,60 +743,65 @@ def get_rides(tokens):
     # Process & Subset relevant columns CTA
     cta.loc[:, 'month_beginning'] = pd.to_datetime(cta['month_beginning'])
     cta.loc[:, 'month_year'] = cta['month_beginning'].dt.to_period('M')
-    cta_sub = cta.loc[:, ['station_id','month_year','avg_weekday_rides','monthtotal']]
-    cta_sub.loc[:,'station_id']=cta_sub['station_id'].astype(str)
+    cta_sub = cta.loc[:, ['station_id', 'month_year', 'avg_weekday_rides',
+                          'monthtotal']]
+    cta_sub.loc[:, 'station_id'] = cta_sub['station_id'].astype(str)
 
     # Get CTA Station Mapping file to avoid another spatial join
     c_map = client.get('zbnc-zirh')
-    cta_map=pd.DataFrame.from_dict(c_map)
+    cta_map = pd.DataFrame.from_dict(c_map)
 
-    # Rename geo_id columns using dictionary (as specified in mapping file) from on CTA station geocodes 
-    # the said variable names are defined in the source
+    # Rename geo_id columns using dictionary (as specified in mapping file) from
+    # on CTA station geocodes the said variable names are defined in the source
     # https://data.cityofchicago.org/Transportation/CTA-System-Information-List-of-L-Stops-Map/zbnc-zirh
-    dic_map={':@computed_region_awaf_s7ux':'Historical Wards 2003-2015',
-             ':@computed_region_6mkv_f3dw':'Zip Codes',
-             ':@computed_region_vrxf_vc4k':'Community Areas',    
-             ':@computed_region_bdys_3d7i':'Census Tracts',
-             ':@computed_region_43wa_7qmu':'Wards'}
-    cta_map=cta_map.rename(columns = dic_map)
+    dic_map = {':@computed_region_awaf_s7ux':'Historical Wards 2003-2015',
+               ':@computed_region_6mkv_f3dw':'Zip Codes',
+               ':@computed_region_vrxf_vc4k':'Community Areas',
+               ':@computed_region_bdys_3d7i':'Census Tracts',
+               ':@computed_region_43wa_7qmu':'Wards'}
+    cta_map = cta_map.rename(columns=dic_map)
 
     # Flatten records at by Zip Ward and Station Mapping ID
-    cta_map=cta_map.groupby(['map_id','Wards'], as_index=False).size().reset_index(name='freq')
-    cta_map=cta_map.drop('freq',axis=1)
-    cta_map.loc[:, 'map_id']=cta_map['map_id'].astype(str)
+    cta_map = cta_map.groupby(['map_id', 'Wards'], as_index=False)\
+                     .size()\
+                     .reset_index(name='freq')
+    cta_map = cta_map.drop('freq', axis=1)
+    cta_map.loc[:, 'map_id'] = cta_map['map_id'].astype(str)
 
     # Get Ward and ZIP codes to rides data using mapping file
-    ct = cta_sub.merge(cta_map, left_on='station_id', right_on='map_id', how='inner')
+    ct = cta_sub.merge(cta_map, left_on='station_id', right_on='map_id',
+                       how='inner')
 
     # Convert data types
-    ct.loc[:, 'Wards']=ct['Wards'].astype(str)
-    ct.loc[:, 'monthtotal']=ct['monthtotal'].astype('float')
-    ct.loc[:, 'avg_weekday_rides']=ct['avg_weekday_rides'].astype('float')
+    ct.loc[:, 'Wards'] = ct['Wards'].astype(str)
+    ct.loc[:, 'monthtotal'] = ct['monthtotal'].astype('float')
+    ct.loc[:, 'avg_weekday_rides'] = ct['avg_weekday_rides'].astype('float')
 
-    cta_ward=ct.groupby(['month_year','Wards'],as_index=False).agg(
-                {"monthtotal": 'sum', 'avg_weekday_rides':'sum'})
+    cta_ward = ct.groupby(['month_year', 'Wards'], as_index=False)\
+                 .agg({"monthtotal": 'sum', 'avg_weekday_rides':'sum'})
 
     return cta_ward
 
 # Load Zillow median home values
 def get_realestate(zip_filepath):
     '''
-    Obtain and aggregate real-estate median square feet price at zipcode level
-    Input: 
-        zip_filepath (str): input filepaths for Zillow Data
-    
-    Returns: a pandas dataframe
-    '''
-    # Load & subset Sqaure foot price data at Zip
-    zmh = pd.read_csv(zip_filepath,encoding='latin-1')
-    zmh_ch = zmh.loc[zmh['City']=='Chicago']
-    zmh_ch = zmh_ch.drop(['City', 'State', 'Metro','CountyName'], axis=1)
+    Obtain and aggregate real-estate median square feet price at zipcode level.
 
-    # Pivot Attributes for Reshaping Wide to Long format for aggregation
-    piv  = ['RegionID','RegionName','SizeRank']
+    Input:
+    zip_filepath (str): input filepath for Zillow Data
+
+    Returns: pandas dataframe
+    '''
+    # Load & subset square foot price data at Zip
+    zmh = pd.read_csv(zip_filepath, encoding='latin-1')
+    zmh_ch = zmh.loc[zmh['City'] == 'Chicago']
+    zmh_ch = zmh_ch.drop(['City', 'State', 'Metro', 'CountyName'], axis=1)
+
+    # Pivot attributes for reshaping wide to long format for aggregation
+    piv = ['RegionID', 'RegionName', 'SizeRank']
     val = zmh_ch.columns[~zmh_ch.columns.isin(piv)]
 
-    zz_l = zmh_ch.melt(id_vars=piv,  value_vars=val, var_name='Month', 
+    zz_l = zmh_ch.melt(id_vars=piv, value_vars=val, var_name='Month',
                        value_name='MedianValuePerSqfeet_Zip')
 
     return zz_l
@@ -796,34 +811,34 @@ def get_ecofeatures(ump_filepath, gdp_filepath):
     '''
     Get annual GDP and unemployment rates in Chicago.
 
-    Input: 
-        ump_filepath: (str) filepath for umemployment data
-        gdp_filepaths: (str) filepath for GDP data
-    Returns: tuple of unemployment and GDP data frames (ump, gdp)
+    Input:
+    ump_filepath: (str) filepath for umemployment data
+    gdp_filepaths: (str) filepath for GDP data
+
+    Returns: tuple of pandas dataframes (unemployment, gdp)
     '''
     ump = pd.read_excel(ump_filepath, sheet_name='Data')
     gdp = pd.read_excel(gdp_filepath, sheet_name='Data')
 
-    WINDOW=1
-    gdp['GDP_growth'] = gdp['GDP_billion_dollars'].pct_change(periods=WINDOW); 
-    gdp = gdp.loc[gdp['Year'] > 2001]
+    gdp['GDP_growth'] = gdp['GDP_billion_dollars'].pct_change(periods=1)
+    gdp = gdp.loc[gdp['Year'] >= 2001]
 
     return ump, gdp
 
-# Helper function for obtaining data
+# Helper function for reading API keys
 def load_tokens(tokens_file):
     '''
     Loads dictionary of API tokens.
 
     tokens_file (str): path to a JSON file containing API tokens
     '''
-    with open(tokens_file,'r') as file:
+    with open(tokens_file, 'r') as file:
         return json.load(file)
 
 #### Linking functions ####
 def link_zbp_licenses(zbp, licenses):
     '''
-    Links Census data on Zip Code Business Patterns with business licenses based
+    Links Census data on zip code business patterns with business licenses based
     on year and zipcodes.
 
     Inputs:
@@ -833,14 +848,15 @@ def link_zbp_licenses(zbp, licenses):
     Returns: pandas dataframe
     '''
     licenses['year'] = licenses['pred_date'].dt.to_period('Y') - 1
-    
+
     zbp['merge_col'] = zbp.year.astype(str) + '-' + zbp.zipcode.astype(str)
     zbp = zbp.drop('year', axis=1)
-    licenses['merge_col'] = licenses.year.astype(str) + '-' + licenses.zip_code.astype(str)
+    licenses['merge_col'] = licenses.year.astype(str) + '-' +\
+                            licenses.zip_code.astype(str)
     licenses = licenses.drop('year', axis=1)
 
-    return pd.merge(licenses, zbp, how='left', on='merge_col').drop(['merge_col', 'zipcode'],
-                                                                    axis=1)
+    return pd.merge(licenses, zbp, how='left', on='merge_col')\
+             .drop(['merge_col', 'zipcode'], axis=1)
 
 def link_census_licenses(census_2000, census_2010, licenses):
     '''
@@ -849,17 +865,16 @@ def link_census_licenses(census_2000, census_2010, licenses):
 
     Inputs:
     census_2000 (pandas dataframe): a set of census demographic data for
-        instances between 2000 and 2009
+        instances during or before 2010
     census_2010 (pandas dataframe): a set of census demographic data for
-        instances between 2000 and 2009
+        instances after 2010
     licenses (pandas dataframe): a set of business licenses data
 
     Returns: pandas dataframe
     '''
     licenses['year'] = licenses['pred_date'].dt.to_period('Y') - 1
 
-
-    pre_2010_lcs_mask = licenses.year < 2010
+    pre_2010_lcs_mask = licenses.year <= 2010
     pre_2010 = pd.merge(licenses[pre_2010_lcs_mask], census_2000, how='left',
                         left_on='census_tract', right_on='tract')
 
@@ -872,8 +887,8 @@ def link_census_licenses(census_2000, census_2010, licenses):
 
 def link_cta_licenses(cta, licenses, months):
     '''
-    Links 'El' station ridership with business license data based on a given
-    time length.
+    Links rolling 'El' station ridership with business license data based on a
+    city wards.
 
     Inputs:
     cta (pandas dataframe): a set of cta ridership data
@@ -893,24 +908,25 @@ def link_cta_licenses(cta, licenses, months):
              .rename({'monthtotal': 'monthavg_last{}'.format(months),
                       'avg_weekday_rides': 'avg_weekday_rides_last{}'.format(months)},
                      axis=1)
+
     cta['merge_col'] = cta['Wards'].astype(str) + '_' + cta.month_year.astype(str)
 
     licenses['merge_col'] = (licenses['ward'].astype(str) + '_' +
                              licenses.pred_month_year.astype(str))
 
     return pd.merge(licenses, cta, how='left', on='merge_col')\
-             .drop(['month_year', 'pred_month_year', 'merge_col', 'Wards'], axis=1)
+             .drop(['month_year', 'pred_month_year', 'merge_col', 'Wards'],
+                   axis=1)
 
 def link_real_estate_licenses(real_estate, licenses, months):
     '''
-    Links median home price per square foot in a given zipcode from Zillow
-    with business license data.
+    Links median home price per square foot in a given zipcode from Zillow with
+    business license data.
 
     Inputs:
     realestate (pandas dataframe): a set of real estate price data
     licenses (pandas dataframe): a set of business licenses data
     months (int): number of months to aggregate cta ridership data over
-
 
     Returns: pandas dataframe
     '''
@@ -923,23 +939,28 @@ def link_real_estate_licenses(real_estate, licenses, months):
                              .droplevel(1)\
                              .reset_index()
 
-    real_estate['merge_col'] = real_estate['RegionName'].astype(str) + '_' + real_estate.Month.astype(str)
+    real_estate['merge_col'] = real_estate['RegionName'].astype(str) + '_' +\
+                               real_estate.Month.astype(str)
 
     licenses['merge_col'] = (licenses['zip_code'].astype(str) + '_' +
                              licenses.pred_month_year.astype(str))
 
+
     return pd.merge(licenses, real_estate, how='left', on='merge_col')\
-             .drop(['pred_month_year', 'merge_col', 'RegionName', 'Month'], axis=1)
+             .drop(['pred_month_year', 'merge_col', 'RegionName', 'Month'],
+                   axis=1)
 
 def link_gdp_licenses(gdp, licenses):
     '''
     Links Chicago GDP data with business license data.
-    
+
     Inputs:
-    gdp (pandas dataframe): a set of gdp data
-    licenses (pandas dataframe): a set of business licenses data
+    gdp (pandas dataframe): gdp dataset
+    licenses (pandas dataframe): business licenses dataset
+
+    Returns: pandas dataframe
     '''
-    licenses['Year'] = licenses['pred_date'].dt.year - 1 
+    licenses['Year'] = licenses['pred_date'].dt.year - 1
 
     return pd.merge(licenses, gdp, how='left', on='Year')\
              .drop('Year', axis=1)
@@ -947,15 +968,15 @@ def link_gdp_licenses(gdp, licenses):
 def link_ump_licenses(ump, licenses):
     '''
     Links Chicago unemployment rate data with business license data.
-    
+
     Inputs:
-    ump (pandas dataframe): a set of gdp data
-    licenses (pandas dataframe): a set of business licenses data
+    ump (pandas dataframe): gdp dataset
+    licenses (pandas dataframe): business licenses dataset
+
+    Returns: pandas dataframe
     '''
     licenses['Year'] = licenses['pred_date'].dt.year - 1
 
     return pd.merge(licenses, ump, how='left', on='Year')\
              .drop('Year', axis=1)\
              .rename({'Annual': "unemployment_rate"}, axis=1)
-
-

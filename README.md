@@ -8,52 +8,80 @@ Harris School of Public Policy
 
 ## Project overview & requirements
 
-This project's folder contains the following files:
+This project's directory contains the following subdirectories and files:
 
-- pipeline_library.py: general functions for a machine learning pipeline (reading data, preprocessing data, generating features, building models, etc.)
-- predict_closures.py: specific functions for applying pipeline_library to the Chicago Business Licenses data
-- load_data.py: downloads and links all the necessary datasets for this analysis    
+```
+modeling/
+|- pipeline_library.py: general functions for a machine learning pipeline
+|                       (reading data, preprocessing data, generating features,
+|                       building models, etc.)
+|- predict_closures.py: specific functions for applying pipeline_library to the
+|                       Chicago Business Licenses dataset
+|- load_data.py: downloads and links all the necessary datasets for this
+|                analysis    
+|- get_pickle.sh: downloads frozen version of dataset from 10 June 2019 as a
+|                 pickle (Linux-specific)
+|- get_pickle_mac.sh: downloads frozen version of dataset from 10 June 2019 as a
+|                     pickle (Mac-specific)
+|- getfiles_mac.sh: downloads csv files for datasets that could not be obtained
+|                   through an API (Mac-specific)
+|- - tokens.json: a json file containing API tokens for the Chicago Open Data
+                  Portal and US Census Bureau website; the provided file includes
+                  formats but not actual tokens for security reasons 
+
+aux/
+|- data_exploration.ipynb: contains code with basic data exploration
+
+configs/: contains json files specifying preprocessing, feature generation,
+|         and model specifications to be passed to the predict_closures.py
+|         program  
+|- ...
 
 
-- tokens.json: a json file containing Chicago Open Data Portal and US Census Bureau API tokens
-to allow for API access to these data sources; the provided file includes formats but not actual tokens for security reasons 
-- data_exploration.ipynb: contains code demonstrating basic data exploration
-- get_pickle.sh: downloads pickled version of dataset from 10 June 2019 (Linux-specific)
-- get_pickle_mac.sh: downloads pickled version of dataset from 10 June 2019 (Mac-specific)
-- getfiles_mac.sh: downloads csv files for datasets that could not be obtained through an
-API
-- mlproject-env.yml: Anaconda environment configuration file for running the project  
+ethics_aq/: contains files related to the bias and fiarness report
+|- ethics_aq/ethics_aequitas.py: code for producing the bias and fairness report  
+|- ...
 
+requirements.txt: python dependencies list
 
-- configs/: contains json files specifying preprocessing, feature generation, and model specifications to be passed to the predict_closures program  
+README.md: README file
+```
 
+The project was developed using Python 3.7.3 on MacOS Mojave 10.14.4, and
+results were obtained by running the project on compute nodes of the Research
+Computing Center at the University of Chicago and on a c4.8xlarge, c5.9xlarge,
+and c5.18xlarge AWS EC2 virtual machines. Python package requirements can be
+found in the `requirements.txt` file in the root of the project.
 
-- ethics_aq/: contains files related to the bias and fiarness report
-- ethics_aq/ethics_aequitas.py: code for producing the bias and fairness report  
+To install all the requirements, execute the following command in the root directory
+of the project:
 
+```
+ pip install -r requirements.txt 
+ ```
 
+Helpful documentation and references are cited throughout the docstrings of the
+code.
 
-The project was developed using Python 3.7.3 on MacOS Mojave 10.14.4, and results were obtained by running the project on a compute node of the Research Computing Center at the University of Chicago and on a c4.8xlarge, c5.9xlarge, and c5.18xlarge AWS EC2 virtual machines. It requires the following libraries and their dependencies:
+Before running the program for the first time, you'll need to download some datasets
+that don't have an API. On Mac, execute the following command from within the
+`modeling` directory:
 
-| Package        | Version     |
-| :------------: | :---------: |
-| certifi |  2019.3.9  |
-| geopandas |  0.5.0  |
-| graphviz | 0.10.1 |
-| matplotlib |  3.0.3  |
-| numpy |  1.16.2  |
-| pandas |  0.24.2  |
-| scikit-learn |  0.20.3 |
-| seaborn |  0.9.0  |
-| shapely |  1.6.4  |
-| sodapy |  1.5.2 |
-| urllib3 |   1.25.3 |
+```
+sh getfiles_mac.sh
+```
 
-Alternatively, a conda environment including all of the necessary data libraries is available on Anaconda Cloud at fogarty-ben/mlproject or in the mlproject-env.yml file in the root of the repository.
+On other operating systems, dowload this
+[download this archive file](https://uchicago.box.com/shared/static/cgwx1a1e3r0jz48knpy8mymg5etlzdji.zip)
+and unzip it within the `modeling` directory. This will create a new subdirectory,
+titled `data` within the `modeling` directory.
 
-Helpful documentation and references are cited throughout the docstrings of the code.
-
-To run the program, use the following command:
+To run the program, use the following command from within the modelling directory:
 ```
 python3 predict_closures.py -f <path to features config JSON file> -m <path to models config JSON file> [-p <path to optional preprocessing config file>] [-d <path to pickled dataset>] [-s <optional random seed>] [--savefigs (denotes that figures should be saved instead of displayed)] [--savepreds (denotes that predictions from each testing set should be saved)] [--saveeval (denotes that evaluation tables should be saved)]
 ```
+
+## Presentation and findings
+
+The authors have summarized their findings and saved predictions in a document that
+is not included in this repository. For access, please contact one of them.

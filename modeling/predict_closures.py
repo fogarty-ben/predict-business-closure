@@ -13,13 +13,13 @@ Prof. Rayid Ghani
 '''
 
 import argparse
+import datetime
 import json
 import pickle
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import datetime
 
 import load_data
 import pipeline_library as pl
@@ -27,13 +27,17 @@ import pipeline_library as pl
 def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
                    save_figs=False, save_preds=False, save_eval=False):
     '''
-    Applies the pipeline library to predicting if a licensed business on a 
+    Applies the pipeline library to predicting if a licensed business on a
     prediction date will renew its license in the next two-year period.
 
     Inputs:
-    dataset (str): path to the pickle file containing the training data
-    preprocessing (dict): dictionary of keyword arguments to pass to the
-        preprocess_data function
+    preprocessing (dict): preprocessing specifications as a dictionary of
+        keyword arguments to pass to the preprocess_data function
+    features (dict): feature generation specifiations as a dictionary of keyword
+        arguments to pass to the generate_features function in
+        pipeline_library
+    models (dict): list of model specification dictionaries
+    dataset (str): path to the pickle file if using frozen dataset
     seed (str): seed used for random process to adjucate ties when translating
         predicted probabilities to predicted classes given some percentile
         threshold
@@ -48,13 +52,16 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
             df = pickle.load(file)
 
     print('Generating training/testing splits...')
-    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date', {'years': 2}, 
-                            gap={'years': 2}, start_date="2006-01-01", end_date='2016-01-01')
+    training_splits, testing_splits = pl.create_temporal_splits(df, 'pred_date',
+                                                                {'years': 2},
+                                                                gap={'years': 2},
+                                                                start_date="2006-01-01",
+                                                                end_date='2016-01-01')
 
     print('Preprocessing data and generating features...')
     for i in range(len(training_splits)):
-        training_splits[i] = preprocess_data(training_splits[i], **preprocessing)
-        testing_splits[i] = preprocess_data(testing_splits[i], **preprocessing)
+        training_splits[i] = pl.preprocess_data(training_splits[i], **preprocessing)
+        testing_splits[i] = pl.preprocess_data(testing_splits[i], **preprocessing)
 
         training_splits[i], testing_splits[i] = generate_features(training_splits[i],
                                                                   testing_splits[i],
@@ -74,17 +81,17 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
         pred_probs = predict_probs(trained_classifiers, testing_splits)
         if save_preds:
             for i, prediction in enumerate(pred_probs):
-                testing_splits[i]['pred_class_10%'] = pl.predict_target_class(pred_probs[i], 0.1, 
-                                                                           seed=seed)
+                testing_splits[i]['pred_class_10%'] = pl.predict_target_class(pred_probs[i], 0.1,
+                                                                              seed=seed)
                 testing_splits[i].to_csv(model_name + '_set-{}_pred_probs.csv'.format(i + 1),
-                              index=False)
+                                         index=False)
                 testing_splits[i] = testing_splits[i].drop('pred_class_10%', axis=1)
         print('\n')
         if save_figs:
             eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed,
                                             model_name, fig_prefix=model_name)
         else:
-            eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed, 
+            eval_tbl = evaluate_classifiers(pred_probs, testing_splits, seed,
                                             model_name)
         print(eval_tbl.to_string())
         if save_eval:
@@ -94,29 +101,12 @@ def apply_pipeline(preprocessing, features, models, dataset=None, seed=None,
 
         return trained_classifiers
 
-def preprocess_data(df, methods=None, manual_vals=None):
-    '''
-    Preprocesses the data
-
-    Inputs:
-    df (pandas dataframe): the dataset
-    methods (dict): keys are column names and values the imputation method to
-        apply to that column; valid methods are defined in pipeline_library
-    manual_vals (dict): keys are column names and values the values to fill
-        missing values with in columns with 'manual' imputation method
-
-    Returns: pandas dataframe
-    '''
-    df = pl.preprocess_data(df, methods=methods, manual_vals=manual_vals)
-
-    return df
-
 def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
-                      dummy_cols, iter_dummy_cols, binary_cut_cols, 
+                      dummy_cols, iter_dummy_cols, binary_cut_cols,
                       duration_cols, interaction_cols, drop_cols):
     '''
     Generates categorical, binary, and scaled features. While features are
-    generate for the training data independent of the testing data, features
+    generated for the training data independent of the testing data, features
     for the testing data sometimes require ranges or other information about the
     properties of features created for the training data to ensure consistency.
     Operations will occurr in the following order:
@@ -127,7 +117,8 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     - Create dummy columns (new column with name of original + '_tf')
     - Create dummy columns for iterables (replaces original column)
     - Binary cut columns (replaces original column)
-    - Duration columns (automatically scaled) (new column with original name + '_duration')
+    - Duration columns (automatically scaled) (new column with original name +
+      '_duration')
     - Create interaction columns ()
     - Drop columns (eliminates original column)
 
@@ -149,24 +140,25 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
     dummy_cols (list of strs): names of columns to convert to dummy variables
     iter_dummy_cols (list of col names): name of columns where each value is an
         iterable to be converted to a set of dummy columns
-    duration_cols (list of tuples of column names): first column is name of column containg
-        start date, second column is name of column containing end dates
-    interaction_cols (list of n-ples of col names): each tuple contains names of
-        columns to interact with one another
     binary_cut_cols (dict of dicts): each key is the name of a column to cut
         into two groups based on some threshold and each value is a dictionry
         of arguments to pass to the cut_binary function in pipeline_library
         (must contain a value for threshold, or_equal_to parameter is optional)
+    duration_cols (list of tuples of column names): first column is name of
+        column containg start date, second column is name of column containing
+        end dates
+    interaction_cols (list of n-ples of col names): each tuple contains names of
+        columns to interact with one another
     drop_cols (list of strs): names of columns to drop
 
     Returns: tuple of pandas dataframe, the training and testing datasets after
-        generating the features
+        generating features
     '''
 
     for col in n_ocurr_cols:
         training.loc[:, str(col) + '_n_occur'] = pl.generate_n_occurences(training[col])
         testing.loc[:, str(col) + '_n_occur'] = pl.generate_n_occurences(testing[col],
-                                                             addl_obs=training[col])
+                                                                         addl_obs=training[col])
     for col in scale_cols:
         max_training = max(training[col])
         min_training = min(training[col])
@@ -201,18 +193,18 @@ def generate_features(training, testing, n_ocurr_cols, scale_cols, bin_cols,
             testing[missing_col] = 0
 
     for start_col, end_col in duration_cols:
-        training[start_col + '-' + end_col + "_duration"] = pl.days_between(training[start_col], 
+        training[start_col + '-' + end_col + "_duration"] = pl.days_between(training[start_col],
                                                                             training[end_col])
         testing[start_col + '-' + end_col + "_duration"] = pl.days_between(testing[start_col],
                                                                            testing[end_col])
         max_training = max(training[start_col + '-' + end_col + "_duration"])
         min_training = min(training[start_col + '-' + end_col + "_duration"])
-        training.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(
-                                                                         training[start_col + '-' + end_col + "_duration"], 
-                                                                         a=max_training, b=min_training)
-        testing.loc[:, start_col + '-' + end_col + "_duration_scale"] = pl.scale_variable_minmax(
-                                                                        testing[start_col + '-' + end_col + "_duration"], 
-                                                                        a=max_training, b=min_training)
+        training.loc[:, start_col + '-' + end_col + "_duration_scale"] =\
+            pl.scale_variable_minmax(training[start_col + '-' + end_col + "_duration"],
+                                     a=max_training, b=min_training)
+        testing.loc[:, start_col + '-' + end_col + "_duration_scale"] =\
+            pl.scale_variable_minmax(testing[start_col + '-' + end_col + "_duration"],
+                                     a=max_training, b=min_training)
         training = training.drop(start_col + '-' + end_col + "_duration", axis=1)
         testing = testing.drop(start_col + '-' + end_col + "_duration", axis=1)
 
@@ -238,20 +230,23 @@ def train_classifiers(model, training):
     set).
 
     Inputs:
-    model (dict): specifications for the classifiers
+    model (dict): specifications for the classifier (see pipeline library
+        function generate_classifier for more information)
     training (list of pandas dataframe): a list of training datasets
 
-    Returns: 2D list of trained sklearn classifiers
+    Returns: 2-D list of trained sklearn classifiers
     '''
     classifiers = []
-    fi_available = model['model'] in ['rf', 'dt', 'boosting', 'bagging', 'lr', 'svm']
+    fi_available = model['model'] in ['rf', 'dt', 'boosting', 'bagging', 'lr',
+                                      'svm']
     for i in range(len(training)):
         print('Building with training set {}'.format(i + 1))
         features = training[i].drop('no_renew_nextpd', axis=1)
         target = training[i].no_renew_nextpd
         classifiers.append(pl.generate_classifier(features, target, model))
-        feature_importance = pl.get_feature_importance(features, classifiers[-1], model)
-        if fi_available:
+        feature_importance = pl.get_feature_importance(features, classifiers[-1],
+                                                       model)
+        if fi_available: # display feature importance
             print(feature_importance.sort_values('Importance', ascending=False)\
                                     .head(15)\
                                     .to_string())
@@ -286,7 +281,7 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
                          fig_prefix=None):
     '''
     Prints out evaluations for the trained model using the specified testing
-    datasets
+    datasets.
 
     Inputs:
     pred_probs (list of pandas series): list of predicted probabilities
@@ -310,8 +305,8 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
         y_actual = testing_splits[i].no_renew_nextpd
         table['Test/Training Set {}'.format(i + 1)], fig =\
             pl.evaluate_classifier(pred_probs[i], y_actual,\
-                                   [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], seed=seed,
-                                   model_name=model_name,
+                                   [0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50],
+                                   seed=seed, model_name=model_name,
                                    dataset_name='Training/Testing Set # {}'.format(i + 1),
                                    tie_breaker='pessimistic')
         if fig_prefix is not None:
@@ -319,7 +314,7 @@ def evaluate_classifiers(pred_probs, testing_splits, seed=None, model_name=None,
             plt.close()
         else:
             plt.show()
-    
+
     return table
 
 def parse_args(args):
@@ -339,7 +334,7 @@ def parse_args(args):
                        (optional)
         - 'save_pred': boolean for whether predictions should be output to csv
                        (optional)
-        - 'save_eval': boolean for whether evaluation metrics should be output 
+        - 'save_eval': boolean for whether evaluation metrics should be output
                        to csv (optional)
 
     Returns: 6-ple of filepath to dataset (str), pre-procesing specs (dict),
@@ -369,7 +364,8 @@ def parse_args(args):
 
     save_eval = args.get('save_eval', False)
 
-    return dataset_fp, preprocess_specs, feature_specs, model_specs, seed, save_figs, save_preds, save_eval
+    return dataset_fp, preprocess_specs, feature_specs, model_specs, seed,\
+           save_figs, save_preds, save_eval
 
 
 if __name__ == '__main__':
@@ -398,4 +394,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     data, preprocess, features, models, seed, save_figs, save_preds, save_eval = parse_args(vars(args))
-    apply_pipeline(preprocess, features, models, data, seed, save_figs, save_preds, save_eval)
+    apply_pipeline(preprocess, features, models, data, seed, save_figs,
+                   save_preds, save_eval)
